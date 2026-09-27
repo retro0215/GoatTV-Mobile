@@ -43,6 +43,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import tv.own.owntv.core.database.entity.MovieEntity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -104,6 +105,10 @@ fun HomeScreen(
     val favoriteMovies by vm.favoriteMovies.collectAsStateWithLifecycle()
     val favoriteSeries by vm.favoriteSeries.collectAsStateWithLifecycle()
     val promotions by vm.promotions.collectAsStateWithLifecycle()
+    val topMovies by vm.topMovies.collectAsStateWithLifecycle()
+    val topSeries by vm.topSeries.collectAsStateWithLifecycle()
+    val recentMovies by vm.recentMovies.collectAsStateWithLifecycle()
+    val recentSeries by vm.recentSeries.collectAsStateWithLifecycle()
 
     // Every rail on Home plays or opens on a tap, so the menu is what is left for everything else:
     // favourite it, download it, or take it off the screen.
@@ -131,15 +136,7 @@ fun HomeScreen(
     // time Home is on screen a playlist exists — the shell sends a user with none to setup instead —
     // so telling them to add one was answering a question nobody asked, and it is what the owner saw
     // after adding a portal that had simply not filled any row yet.
-    if (state.config.visibleOrder.isEmpty()) {
-        HomeMessage(
-            title = stringResource(R.string.home_no_rows),
-            body = stringResource(R.string.home_enable_rows),
-            modifier = modifier,
-        )
-        return
-    }
-    if (rows.isEmpty()) {
+    if (rows.isEmpty() && topMovies.isEmpty() && topSeries.isEmpty() && recentMovies.isEmpty() && recentSeries.isEmpty() && promotions.isEmpty()) {
         HomeMessage(
             title = stringResource(R.string.home_start_watching),
             body = stringResource(R.string.home_continue_empty),
@@ -158,6 +155,54 @@ fun HomeScreen(
         }
         weather?.let { info ->
             item("weather") { WeatherChip(info = info, fahrenheit = fahrenheit) }
+        }
+        val topMoviesList: List<MovieEntity> = topMovies
+        if (topMoviesList.isNotEmpty()) {
+            item("top_movies") {
+                MobileDiscoveryMoviesRow(
+                    title = "Top 10 Movies",
+                    items = topMoviesList,
+                    isRanked = true,
+                    onOpenMovie = onOpenMovie,
+                    onMenu = { menuFor = it }
+                )
+            }
+        }
+        val topSeriesList: List<tv.own.owntv.core.database.entity.SeriesEntity> = topSeries
+        if (topSeriesList.isNotEmpty()) {
+            item("top_series") {
+                MobileDiscoverySeriesRow(
+                    title = "Top 10 Series",
+                    items = topSeriesList,
+                    isRanked = true,
+                    onOpenSeries = onOpenSeries,
+                    onMenu = { menuFor = it }
+                )
+            }
+        }
+        val recentMoviesList: List<MovieEntity> = recentMovies
+        if (recentMoviesList.isNotEmpty()) {
+            item("recent_movies") {
+                MobileDiscoveryMoviesRow(
+                    title = "Recently Added Movies",
+                    items = recentMoviesList,
+                    isRanked = false,
+                    onOpenMovie = onOpenMovie,
+                    onMenu = { menuFor = it }
+                )
+            }
+        }
+        val recentSeriesList: List<tv.own.owntv.core.database.entity.SeriesEntity> = recentSeries
+        if (recentSeriesList.isNotEmpty()) {
+            item("recent_series") {
+                MobileDiscoverySeriesRow(
+                    title = "Recently Added Series",
+                    items = recentSeriesList,
+                    isRanked = false,
+                    onOpenSeries = onOpenSeries,
+                    onMenu = { menuFor = it }
+                )
+            }
         }
         rows.forEach { row ->
             item(row.name) {
@@ -468,12 +513,52 @@ private fun TrendingRow(
             contentPadding = PaddingValues(horizontal = MobileDimens.ScreenPaddingH),
         ) {
             items(items.size, key = { items[it].stableKey }) { index ->
+                when (val item = items[index]) {
+                    is TrendingHomeItem.Movie -> PosterCard(
+                        title = item.movie.name,
+                        imageUrl = item.movie.posterUrl,
+                        sharedKey = posterKey(LibraryTab.MOVIES.name, item.movie.id),
+                        onClick = { onOpenMovie(item.movie.id) },
+                        onLongClick = {
+                            onMenu(ContentTarget(MediaType.MOVIE, item.movie.id, item.movie.name))
+                        },
+                    )
+                    is TrendingHomeItem.Series -> PosterCard(
+                        title = item.series.name,
+                        imageUrl = item.series.posterUrl,
+                        sharedKey = posterKey(LibraryTab.SERIES.name, item.series.id),
+                        onClick = { onOpenSeries(item.series.id) },
+                        onLongClick = {
+                            onMenu(ContentTarget(MediaType.SERIES, item.series.id, item.series.name))
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobileDiscoveryMoviesRow(
+    title: String,
+    items: List<MovieEntity>,
+    isRanked: Boolean,
+    onOpenMovie: (Long) -> Unit,
+    onMenu: (ContentTarget) -> Unit,
+) {
+    Column {
+        SectionHeader(title = title)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapMedium),
+            contentPadding = PaddingValues(horizontal = MobileDimens.ScreenPaddingH),
+        ) {
+            items(items.size, key = { items[it].id }) { index ->
                 val rank = index + 1
                 Row(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy((-8).dp)
                 ) {
-                    if (rank <= 10) {
+                    if (isRanked && rank <= 10) {
                         Text(
                             text = "$rank",
                             style = MaterialTheme.typography.displayLarge.copy(
@@ -484,26 +569,63 @@ private fun TrendingRow(
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
                     }
-                    when (val item = items[index]) {
-                        is TrendingHomeItem.Movie -> PosterCard(
-                            title = item.movie.name,
-                            imageUrl = item.movie.posterUrl,
-                            sharedKey = posterKey(LibraryTab.MOVIES.name, item.movie.id),
-                            onClick = { onOpenMovie(item.movie.id) },
-                            onLongClick = {
-                                onMenu(ContentTarget(MediaType.MOVIE, item.movie.id, item.movie.name))
-                            },
-                        )
-                        is TrendingHomeItem.Series -> PosterCard(
-                            title = item.series.name,
-                            imageUrl = item.series.posterUrl,
-                            sharedKey = posterKey(LibraryTab.SERIES.name, item.series.id),
-                            onClick = { onOpenSeries(item.series.id) },
-                            onLongClick = {
-                                onMenu(ContentTarget(MediaType.SERIES, item.series.id, item.series.name))
-                            },
+                    val item = items[index]
+                    PosterCard(
+                        title = item.name,
+                        imageUrl = item.posterUrl,
+                        sharedKey = posterKey(LibraryTab.MOVIES.name, item.id),
+                        onClick = { onOpenMovie(item.id) },
+                        onLongClick = {
+                            onMenu(ContentTarget(MediaType.MOVIE, item.id, item.name))
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MobileDiscoverySeriesRow(
+    title: String,
+    items: List<tv.own.owntv.core.database.entity.SeriesEntity>,
+    isRanked: Boolean,
+    onOpenSeries: (Long) -> Unit,
+    onMenu: (ContentTarget) -> Unit,
+) {
+    Column {
+        SectionHeader(title = title)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapMedium),
+            contentPadding = PaddingValues(horizontal = MobileDimens.ScreenPaddingH),
+        ) {
+            items(items.size, key = { items[it].id }) { index ->
+                val rank = index + 1
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy((-8).dp)
+                ) {
+                    if (isRanked && rank <= 10) {
+                        Text(
+                            text = "$rank",
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontSize = androidx.compose.ui.unit.TextUnit(52f, androidx.compose.ui.unit.TextUnitType.Sp),
+                                fontWeight = FontWeight.Black
+                            ),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                            modifier = Modifier.padding(bottom = 6.dp)
                         )
                     }
+                    val item = items[index]
+                    PosterCard(
+                        title = item.name,
+                        imageUrl = item.posterUrl,
+                        sharedKey = posterKey(LibraryTab.SERIES.name, item.id),
+                        onClick = { onOpenSeries(item.id) },
+                        onLongClick = {
+                            onMenu(ContentTarget(MediaType.SERIES, item.id, item.name))
+                        },
+                    )
                 }
             }
         }

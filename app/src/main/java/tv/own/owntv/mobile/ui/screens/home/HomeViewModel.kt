@@ -26,6 +26,8 @@ import tv.own.owntv.core.database.dao.ProfileDao
 import tv.own.owntv.core.database.dao.SeriesDao
 import tv.own.owntv.core.database.dao.resolveExistingProfileId
 import tv.own.owntv.core.database.entity.MetadataCacheEntity
+import tv.own.owntv.core.database.entity.MovieEntity
+import tv.own.owntv.core.database.entity.SeriesEntity
 import tv.own.owntv.core.home.TrendingHomeItem
 import tv.own.owntv.core.metadata.MetadataRepository
 import tv.own.owntv.core.home.HomeFeed
@@ -57,6 +59,7 @@ class HomeViewModel(
     private val actions: ContentActions,
     private val movieDao: MovieDao,
     private val seriesDao: SeriesDao,
+    private val sourceDao: tv.own.owntv.core.database.dao.SourceDao,
     private val metadata: MetadataRepository,
     weatherRepository: WeatherRepository,
     connectivity: ConnectivityObserver,
@@ -83,6 +86,18 @@ class HomeViewModel(
     private val _promotions = MutableStateFlow<List<tv.own.owntv.mobile.promotions.HomePromotion>>(emptyList())
     val promotions: StateFlow<List<tv.own.owntv.mobile.promotions.HomePromotion>> = _promotions.asStateFlow()
 
+    private val _topMovies = MutableStateFlow<List<MovieEntity>>(emptyList())
+    val topMovies: StateFlow<List<MovieEntity>> = _topMovies.asStateFlow()
+
+    private val _topSeries = MutableStateFlow<List<SeriesEntity>>(emptyList())
+    val topSeries: StateFlow<List<SeriesEntity>> = _topSeries.asStateFlow()
+
+    private val _recentMovies = MutableStateFlow<List<MovieEntity>>(emptyList())
+    val recentMovies: StateFlow<List<MovieEntity>> = _recentMovies.asStateFlow()
+
+    private val _recentSeries = MutableStateFlow<List<SeriesEntity>>(emptyList())
+    val recentSeries: StateFlow<List<SeriesEntity>> = _recentSeries.asStateFlow()
+
     init {
         reloads.tryEmit(Unit)
         viewModelScope.launch {
@@ -93,7 +108,6 @@ class HomeViewModel(
                         settings.updateHomeConfig(pid) {
                             it.copy(
                                 order = listOf(
-                                    HomeRow.TRENDING,
                                     HomeRow.CONTINUE_MOVIES,
                                     HomeRow.CONTINUE_SERIES,
                                     HomeRow.RECENT_CHANNELS,
@@ -102,6 +116,31 @@ class HomeViewModel(
                             )
                         }
                     }
+                    val sourceIds = tv.own.owntv.core.repository.activeSourceIds(settings, sourceDao, pid)
+                    if (sourceIds.isNotEmpty()) {
+                        val computedTopMovies = getDynamicTopMovies(pid, sourceIds)
+                        _topMovies.value = computedTopMovies
+
+                        val computedTopSeries = getDynamicTopSeries(pid, sourceIds)
+                        _topSeries.value = computedTopSeries
+
+                        _recentMovies.value = movieDao.searchList(String(), sourceIds, 1000)
+                            .sortedByDescending { it.addedAt ?: 0L }
+                            .take(20)
+                        _recentSeries.value = seriesDao.searchList(String(), sourceIds, 1000)
+                            .sortedByDescending { it.addedAt ?: 0L }
+                            .take(20)
+                    } else {
+                        _topMovies.value = emptyList()
+                        _topSeries.value = emptyList()
+                        _recentMovies.value = emptyList()
+                        _recentSeries.value = emptyList()
+                    }
+                } else {
+                    _topMovies.value = emptyList()
+                    _topSeries.value = emptyList()
+                    _recentMovies.value = emptyList()
+                    _recentSeries.value = emptyList()
                 }
                 _feed.value = if (pid < 0) HomeFeed() else reader.load(pid)
             }
@@ -109,6 +148,62 @@ class HomeViewModel(
         viewModelScope.launch {
             _promotions.value = promotionRepository.fetchEligiblePromotions()
         }
+    }
+
+    private suspend fun getDynamicTopMovies(profileId: Long, sourceIds: List<Long>): List<MovieEntity> {
+        if (sourceIds.isEmpty()) return emptyList()
+        val allSearch = movieDao.searchList(String(), sourceIds, 1000)
+        val watched = movieDao.recentlyWatchedSnapshot(profileId, sourceIds, 50)
+        val watchedIds = watched.map { it.id }.toSet()
+        val candidates = (allSearch + watched).distinctBy { it.id }
+
+        val now = System.currentTimeMillis()
+        return candidates.map { movie ->
+            val rating = movie.rating ?: 0.0
+            val ratingScore = if (rating > 0.0) rating * 1.2 else 6.0
+            
+            val addedAt = movie.addedAt ?: 0L
+            val ageDays = if (addedAt > 0L) (now - addedAt).coerceAtLeast(0L) / 86_400_000.0 else 30.0
+            val freshnessScore = maxOf(0.0, 4.0 * (1.0 - (ageDays / 30.0)))
+
+            val engagementScore = if (movie.id in watchedIds) 3.0 else 0.0
+
+            val totalScore = ratingScore + freshnessScore + engagementScore
+            Triple(movie, totalScore, addedAt)
+        }
+        .sortedWith(compareByDescending<Triple<MovieEntity, Double, Long>> { it.second }
+            .thenByDescending { it.third }
+            .thenByDescending { it.first.id })
+        .take(10)
+        .map { it.first }
+    }
+
+    private suspend fun getDynamicTopSeries(profileId: Long, sourceIds: List<Long>): List<SeriesEntity> {
+        if (sourceIds.isEmpty()) return emptyList()
+        val allSearch = seriesDao.searchList(String(), sourceIds, 1000)
+        val watched = seriesDao.recentlyWatchedSnapshot(profileId, sourceIds, 50)
+        val watchedIds = watched.map { it.id }.toSet()
+        val candidates = (allSearch + watched).distinctBy { it.id }
+
+        val now = System.currentTimeMillis()
+        return candidates.map { series ->
+            val rating = series.rating ?: 0.0
+            val ratingScore = if (rating > 0.0) rating * 1.2 else 6.0
+            
+            val addedAt = series.addedAt ?: 0L
+            val ageDays = if (addedAt > 0L) (now - addedAt).coerceAtLeast(0L) / 86_400_000.0 else 30.0
+            val freshnessScore = maxOf(0.0, 4.0 * (1.0 - (ageDays / 30.0)))
+
+            val engagementScore = if (series.id in watchedIds) 3.0 else 0.0
+
+            val totalScore = ratingScore + freshnessScore + engagementScore
+            Triple(series, totalScore, addedAt)
+        }
+        .sortedWith(compareByDescending<Triple<SeriesEntity, Double, Long>> { it.second }
+            .thenByDescending { it.third }
+            .thenByDescending { it.first.id })
+        .take(10)
+        .map { it.first }
     }
 
     fun refresh() {
