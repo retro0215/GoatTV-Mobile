@@ -81,6 +81,27 @@ android {
             ?: ""
         buildConfigField("String", "TMDB_EDGE_KEY", "\"${edgeKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
+        val localProperties = Properties().apply {
+            val f = rootProject.file("local.properties")
+            if (f.isFile) f.inputStream().use { load(it) }
+        }
+
+        val supabaseUrl = System.getenv("SUPABASE_URL")
+            ?: providers.gradleProperty("supabaseUrl").orNull
+            ?: localSigningProps.getProperty("supabaseUrl")
+            ?: localProperties.getProperty("SUPABASE_URL")
+            ?: localProperties.getProperty("supabaseUrl")
+            ?: ""
+        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+
+        val supabaseAnonKey = System.getenv("SUPABASE_ANON_KEY")
+            ?: providers.gradleProperty("supabaseAnonKey").orNull
+            ?: localSigningProps.getProperty("supabaseAnonKey")
+            ?: localProperties.getProperty("SUPABASE_ANON_KEY")
+            ?: localProperties.getProperty("supabaseAnonKey")
+            ?: ""
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseAnonKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -377,6 +398,13 @@ dependencies {
     // Casting. The sender half only: the Chromecast decodes the stream itself, so nothing of the
     // playback engine crosses over — see tv.own.owntv.mobile.cast.
     implementation(libs.play.services.cast.framework)
+
+    // Supabase & Ktor (Home Promotions & Social Rooms)
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.realtime)
+    implementation(libs.ktor.client.okhttp)
     implementation(libs.androidx.mediarouter)
 
     // Local sync pairing: the camera reads the QR code the other device shows. zxing decodes it —

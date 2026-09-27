@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -77,12 +78,19 @@ class HomeViewModel(
     /** Null until the first load finishes — the screen shows nothing rather than a false empty state. */
     val feed: StateFlow<HomeFeed?> = _feed
 
+    private val promotionRepository = tv.own.owntv.mobile.promotions.MobileHomePromotionRepository()
+    private val _promotions = MutableStateFlow<List<tv.own.owntv.mobile.promotions.HomePromotion>>(emptyList())
+    val promotions: StateFlow<List<tv.own.owntv.mobile.promotions.HomePromotion>> = _promotions.asStateFlow()
+
     init {
         reloads.tryEmit(Unit)
         viewModelScope.launch {
             combine(profileId, reloads) { pid, _ -> pid }.collectLatest { pid ->
                 _feed.value = if (pid < 0) HomeFeed() else reader.load(pid)
             }
+        }
+        viewModelScope.launch {
+            _promotions.value = promotionRepository.fetchEligiblePromotions()
         }
     }
 

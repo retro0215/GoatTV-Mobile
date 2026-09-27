@@ -16,3 +16,22 @@
 1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.fivestar.ultra.mobile
 1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.goat.tv.mobile
 1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.supreme.app.mobile
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	Failed to fetch promotions: ${e.message}
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	MobileHomePromoRepo
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	NewApi
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	active
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	banner_url
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	brand_id
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	cta_action
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	cta_text
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	event_id
+3	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	none
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	promotion_brands
+2	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	promotion_id
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	promotions
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	publish_ends_at
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	publish_starts_at
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	room_id
+1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	sort_order
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	$rank
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	promotions

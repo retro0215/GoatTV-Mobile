@@ -25,6 +25,8 @@ graphicsShapes = "1.1.0"
 
 # --- Kotlin libs ---
 coroutines = "1.11.0"
+supabase = "3.8.0"
+ktor = "3.1.1"
 
 # --- Third party ---
 coil = "3.6.2"
@@ -113,6 +115,11 @@ androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", 
 
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+supabase-bom = { group = "io.github.jan-tennert.supabase", name = "bom", version.ref = "supabase" }
+supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt" }
+supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt" }
+supabase-realtime = { group = "io.github.jan-tennert.supabase", name = "realtime-kt" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
 
 # Image loading
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }

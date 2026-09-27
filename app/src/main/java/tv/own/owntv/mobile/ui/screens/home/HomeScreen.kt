@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -102,6 +103,7 @@ fun HomeScreen(
     val favoriteChannels by vm.favoriteChannels.collectAsStateWithLifecycle()
     val favoriteMovies by vm.favoriteMovies.collectAsStateWithLifecycle()
     val favoriteSeries by vm.favoriteSeries.collectAsStateWithLifecycle()
+    val promotions by vm.promotions.collectAsStateWithLifecycle()
 
     // Every rail on Home plays or opens on a tap, so the menu is what is left for everything else:
     // favourite it, download it, or take it off the screen.
@@ -151,6 +153,9 @@ fun HomeScreen(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = MobileDimens.GapLarge),
     ) {
+        if (promotions.isNotEmpty()) {
+            item("promotions") { MobileHomePromotionsSection(promotions = promotions) }
+        }
         weather?.let { info ->
             item("weather") { WeatherChip(info = info, fahrenheit = fahrenheit) }
         }
@@ -459,29 +464,46 @@ private fun TrendingRow(
     Column {
         SectionHeader(title = stringResource(R.string.home_row_now_trending))
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
+            horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapMedium),
             contentPadding = PaddingValues(horizontal = MobileDimens.ScreenPaddingH),
         ) {
             items(items.size, key = { items[it].stableKey }) { index ->
-                when (val item = items[index]) {
-                    is TrendingHomeItem.Movie -> PosterCard(
-                        title = item.movie.name,
-                        imageUrl = item.movie.posterUrl,
-                        sharedKey = posterKey(LibraryTab.MOVIES.name, item.movie.id),
-                        onClick = { onOpenMovie(item.movie.id) },
-                        onLongClick = {
-                            onMenu(ContentTarget(MediaType.MOVIE, item.movie.id, item.movie.name))
-                        },
-                    )
-                    is TrendingHomeItem.Series -> PosterCard(
-                        title = item.series.name,
-                        imageUrl = item.series.posterUrl,
-                        sharedKey = posterKey(LibraryTab.SERIES.name, item.series.id),
-                        onClick = { onOpenSeries(item.series.id) },
-                        onLongClick = {
-                            onMenu(ContentTarget(MediaType.SERIES, item.series.id, item.series.name))
-                        },
-                    )
+                val rank = index + 1
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy((-8).dp)
+                ) {
+                    if (rank <= 10) {
+                        Text(
+                            text = "$rank",
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                fontSize = androidx.compose.ui.unit.TextUnit(52f, androidx.compose.ui.unit.TextUnitType.Sp),
+                                fontWeight = FontWeight.Black
+                            ),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
+                    when (val item = items[index]) {
+                        is TrendingHomeItem.Movie -> PosterCard(
+                            title = item.movie.name,
+                            imageUrl = item.movie.posterUrl,
+                            sharedKey = posterKey(LibraryTab.MOVIES.name, item.movie.id),
+                            onClick = { onOpenMovie(item.movie.id) },
+                            onLongClick = {
+                                onMenu(ContentTarget(MediaType.MOVIE, item.movie.id, item.movie.name))
+                            },
+                        )
+                        is TrendingHomeItem.Series -> PosterCard(
+                            title = item.series.name,
+                            imageUrl = item.series.posterUrl,
+                            sharedKey = posterKey(LibraryTab.SERIES.name, item.series.id),
+                            onClick = { onOpenSeries(item.series.id) },
+                            onLongClick = {
+                                onMenu(ContentTarget(MediaType.SERIES, item.series.id, item.series.name))
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -694,22 +716,51 @@ private fun WeatherChip(info: WeatherInfo, fahrenheit: Boolean) {
             horizontal = MobileDimens.ScreenPaddingH,
             vertical = MobileDimens.GapSmall,
         ),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = info.conditionIcon(),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(WeatherIconSize),
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = MobileDimens.GapSmall),
-        )
+        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun MobileHomePromotionsSection(
+    promotions: List<tv.own.owntv.mobile.promotions.HomePromotion>,
+) {
+    val promo = promotions.firstOrNull() ?: return
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MobileDimens.ScreenPaddingH, vertical = MobileDimens.GapMedium)
+            .clip(MobileCardShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(MobileDimens.GapMedium)) {
+            if (!promo.bannerUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = promo.bannerUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(MobileCardShape),
+                )
+                Spacer(Modifier.height(MobileDimens.GapMedium))
+            }
+            Text(
+                text = promo.title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (!promo.subtitle.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = promo.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
