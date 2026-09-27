@@ -87,8 +87,29 @@ android {
     // ABI split via product flavors, mirroring the TV app: `standard` is what real phones and tablets
     // run, `x86_64` exists for the emulator. The player engine ships large prebuilt .so files, so a
     // universal APK would be roughly double the size for no one's benefit.
-    flavorDimensions += "abi"
+    flavorDimensions += listOf("brand", "abi")
     productFlavors {
+        create("goat") {
+            dimension = "brand"
+            applicationId = "tv.goat.tv.mobile"
+            manifestPlaceholders["appLabel"] = "GoatTV"
+        }
+        create("allaccess") {
+            dimension = "brand"
+            applicationId = "tv.allaccess.app.mobile"
+            manifestPlaceholders["appLabel"] = "AllAccess"
+        }
+        create("fivestar") {
+            dimension = "brand"
+            applicationId = "tv.fivestar.ultra.mobile"
+            manifestPlaceholders["appLabel"] = "5Star Ultra"
+        }
+        create("supreme") {
+            dimension = "brand"
+            applicationId = "tv.supreme.app.mobile"
+            manifestPlaceholders["appLabel"] = "Supreme TV"
+        }
+
         create("standard") {
             dimension = "abi"
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }

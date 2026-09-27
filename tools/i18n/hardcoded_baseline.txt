@@ -3,3 +3,16 @@
 # One tab-separated line per (file, normalised content) with its occurrence count.
 # Phase 1 deletes occurrences until this file is empty; the CI guard then becomes absolute.
 # Format: <count>\t<relative path>\t<content with \t/\n escaped>
+
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	5Star Ultra
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	AllAccess
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	GoatTV
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	Supreme TV
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	allaccess
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	fivestar
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	goat
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	supreme
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.allaccess.app.mobile
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.fivestar.ultra.mobile
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.goat.tv.mobile
+1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.supreme.app.mobile
