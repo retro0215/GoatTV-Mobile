@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
@@ -86,6 +87,22 @@ class HomeViewModel(
         reloads.tryEmit(Unit)
         viewModelScope.launch {
             combine(profileId, reloads) { pid, _ -> pid }.collectLatest { pid ->
+                if (pid >= 0) {
+                    val currentConfig = settings.homeConfig(pid).first()
+                    if (currentConfig.order.isEmpty()) {
+                        settings.updateHomeConfig(pid) {
+                            it.copy(
+                                order = listOf(
+                                    HomeRow.TRENDING,
+                                    HomeRow.CONTINUE_MOVIES,
+                                    HomeRow.CONTINUE_SERIES,
+                                    HomeRow.RECENT_CHANNELS,
+                                    HomeRow.FAVORITE_CHANNELS
+                                )
+                            )
+                        }
+                    }
+                }
                 _feed.value = if (pid < 0) HomeFeed() else reader.load(pid)
             }
         }
