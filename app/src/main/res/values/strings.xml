@@ -8,4 +8,12 @@
     <string name="goat_icon_6">Goat 6</string>
     <string name="goat_icon_7">Goat 7</string>
     <string name="goat_icon_8">Goat 8</string>
+    <string name="allaccess_icon_1">AllAccess 1</string>
+    <string name="allaccess_icon_2">AllAccess 2</string>
+    <string name="allaccess_icon_3">AllAccess 3</string>
+    <string name="allaccess_icon_4">AllAccess 4</string>
+    <string name="allaccess_icon_5">AllAccess 5</string>
+    <string name="allaccess_icon_6">AllAccess 6</string>
+    <string name="allaccess_icon_7">AllAccess 7</string>
+    <string name="allaccess_icon_8">AllAccess 8</string>
 </resources>

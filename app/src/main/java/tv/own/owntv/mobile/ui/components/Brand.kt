@@ -79,21 +79,53 @@ fun AppIcon.goatLabelRes(): Int = when (this) {
     AppIcon.OLIVE_CREAM -> R.string.goat_icon_8
 }
 
+fun AppIcon.allaccessRes(): Int = when (this) {
+    AppIcon.PETROL -> R.drawable.allaccess_icon_1
+    AppIcon.SUNFLOWER -> R.drawable.allaccess_icon_2
+    AppIcon.COBALT -> R.drawable.allaccess_icon_3
+    AppIcon.TOMATO -> R.drawable.allaccess_icon_4
+    AppIcon.BOARD -> R.drawable.allaccess_icon_5
+    AppIcon.EGGSHELL -> R.drawable.allaccess_icon_6
+    AppIcon.OLIVE -> R.drawable.allaccess_icon_7
+    AppIcon.OLIVE_CREAM -> R.drawable.allaccess_icon_8
+}
+
+fun AppIcon.allaccessLabelRes(): Int = when (this) {
+    AppIcon.PETROL -> R.string.allaccess_icon_1
+    AppIcon.SUNFLOWER -> R.string.allaccess_icon_2
+    AppIcon.COBALT -> R.string.allaccess_icon_3
+    AppIcon.TOMATO -> R.string.allaccess_icon_4
+    AppIcon.BOARD -> R.string.allaccess_icon_5
+    AppIcon.EGGSHELL -> R.string.allaccess_icon_6
+    AppIcon.OLIVE -> R.string.allaccess_icon_7
+    AppIcon.OLIVE_CREAM -> R.string.allaccess_icon_8
+}
+
 /** The flat flip-card mark (no shadow, no next card). At 32 dp and below the simpler small drawing. */
 @Composable
 fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
-    if (BrandConfig.currentBrand == MobileBrand.GOAT) {
-        Image(
-            painter = painterResource(icon.goatRes()),
-            contentDescription = null,
-            modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
-        )
-    } else {
-        Image(
-            painter = painterResource(if (size <= 32.dp) icon.markSmall else icon.mark),
-            contentDescription = null,
-            modifier = modifier.size(size),
-        )
+    when (BrandConfig.currentBrand) {
+        MobileBrand.GOAT -> {
+            Image(
+                painter = painterResource(icon.goatRes()),
+                contentDescription = null,
+                modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
+            )
+        }
+        MobileBrand.ALLACCESS -> {
+            Image(
+                painter = painterResource(icon.allaccessRes()),
+                contentDescription = null,
+                modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
+            )
+        }
+        else -> {
+            Image(
+                painter = painterResource(if (size <= 32.dp) icon.markSmall else icon.mark),
+                contentDescription = null,
+                modifier = modifier.size(size),
+            )
+        }
     }
 }
 
@@ -180,7 +212,7 @@ fun BrandLockup(markSize: Int, textSize: Int, modifier: Modifier = Modifier, sta
 @Composable
 fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(16.dp)
-    val isGoat = BrandConfig.currentBrand == MobileBrand.GOAT
+    val brand = BrandConfig.currentBrand
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AppIcon.entries.chunked(4).forEachIndexed { row, icons ->
             if (row > 0) Spacer(Modifier.height(10.dp))
@@ -202,8 +234,13 @@ fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifi
             }
         }
         Spacer(Modifier.height(8.dp))
+        val labelRes = when (brand) {
+            MobileBrand.GOAT -> selected.goatLabelRes()
+            MobileBrand.ALLACCESS -> selected.allaccessLabelRes()
+            else -> selected.label
+        }
         Text(
-            stringResource(if (isGoat) selected.goatLabelRes() else selected.label),
+            stringResource(labelRes),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
