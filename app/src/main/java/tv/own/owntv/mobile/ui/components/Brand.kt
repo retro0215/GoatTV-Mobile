@@ -44,6 +44,7 @@ import tv.own.owntv.core.brand.AppIcon
 import tv.own.owntv.core.brand.AppIconSwitcher
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.brand.BrandConfig
+import tv.own.owntv.mobile.brand.MobileBrand
 import tv.own.owntv.mobile.ui.theme.glassDialogWindow
 
 /**
@@ -56,14 +57,44 @@ fun rememberAppliedIcon(): AppIcon {
     return remember(context) { AppIconSwitcher.applied(context) }
 }
 
+fun AppIcon.goatRes(): Int = when (this) {
+    AppIcon.PETROL -> R.drawable.goattv_icon_1
+    AppIcon.SUNFLOWER -> R.drawable.goattv_icon_2
+    AppIcon.COBALT -> R.drawable.goattv_icon_3
+    AppIcon.TOMATO -> R.drawable.goattv_icon_4
+    AppIcon.BOARD -> R.drawable.goattv_icon_5
+    AppIcon.EGGSHELL -> R.drawable.goattv_icon_6
+    AppIcon.OLIVE -> R.drawable.goattv_icon_7
+    AppIcon.OLIVE_CREAM -> R.drawable.goattv_icon_8
+}
+
+fun AppIcon.goatLabelRes(): Int = when (this) {
+    AppIcon.PETROL -> R.string.goat_icon_1
+    AppIcon.SUNFLOWER -> R.string.goat_icon_2
+    AppIcon.COBALT -> R.string.goat_icon_3
+    AppIcon.TOMATO -> R.string.goat_icon_4
+    AppIcon.BOARD -> R.string.goat_icon_5
+    AppIcon.EGGSHELL -> R.string.goat_icon_6
+    AppIcon.OLIVE -> R.string.goat_icon_7
+    AppIcon.OLIVE_CREAM -> R.string.goat_icon_8
+}
+
 /** The flat flip-card mark (no shadow, no next card). At 32 dp and below the simpler small drawing. */
 @Composable
 fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
-    Image(
-        painter = painterResource(if (size <= 32.dp) icon.markSmall else icon.mark),
-        contentDescription = null,
-        modifier = modifier.size(size),
-    )
+    if (BrandConfig.currentBrand == MobileBrand.GOAT) {
+        Image(
+            painter = painterResource(icon.goatRes()),
+            contentDescription = null,
+            modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
+        )
+    } else {
+        Image(
+            painter = painterResource(if (size <= 32.dp) icon.markSmall else icon.mark),
+            contentDescription = null,
+            modifier = modifier.size(size),
+        )
+    }
 }
 
 /**
@@ -149,6 +180,7 @@ fun BrandLockup(markSize: Int, textSize: Int, modifier: Modifier = Modifier, sta
 @Composable
 fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(16.dp)
+    val isGoat = BrandConfig.currentBrand == MobileBrand.GOAT
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AppIcon.entries.chunked(4).forEachIndexed { row, icons ->
             if (row > 0) Spacer(Modifier.height(10.dp))
@@ -171,7 +203,7 @@ fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifi
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            stringResource(selected.label),
+            stringResource(if (isGoat) selected.goatLabelRes() else selected.label),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )

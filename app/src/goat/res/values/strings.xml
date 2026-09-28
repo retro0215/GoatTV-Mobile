@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GoatTV</string>
+    <string name="goat_icon_1">Goat 1</string>
+    <string name="goat_icon_2">Goat 2</string>
+    <string name="goat_icon_3">Goat 3</string>
+    <string name="goat_icon_4">Goat 4</string>
+    <string name="goat_icon_5">Goat 5</string>
+    <string name="goat_icon_6">Goat 6</string>
+    <string name="goat_icon_7">Goat 7</string>
+    <string name="goat_icon_8">Goat 8</string>
 </resources>
