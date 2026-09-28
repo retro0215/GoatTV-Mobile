@@ -986,14 +986,16 @@ class LiveTuner(
         return true
     }
 
-    /** Stop playing altogether — the mini player's swipe-down, and nothing else. */
-    fun stop() {
+    /** Stop playing playback engines. If [clearChannel] is true, resets channel selection state. */
+    fun stopPlayback(clearChannel: Boolean = true) {
         timeshift.clear()
         loadedId = null
         lastCatchup = null
-        _channel.value = null
-        _nowNext.value = null
-        _timelineProgrammes.value = emptyList()
+        if (clearChannel) {
+            _channel.value = null
+            _nowNext.value = null
+            _timelineProgrammes.value = emptyList()
+        }
         // Withdraw first: a session left published after the sound stops keeps answering the
         // lockscreen and the headphone button for a stream that no longer exists.
         cast.release(this)
@@ -1002,6 +1004,11 @@ class LiveTuner(
         // Both engines and every watcher the ladder owns, or one of them fires on a channel nobody is
         // watching and stops the shared player — which by then may be showing a film.
         live.stop()
+    }
+
+    /** Stop playing altogether — the mini player's swipe-down, and nothing else. */
+    fun stop() {
+        stopPlayback(clearChannel = true)
     }
 
     /**

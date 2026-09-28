@@ -126,11 +126,11 @@ fun LiveScreen(
         onDispose { streamOnScreen.value = false }
     }
 
-    // Live preview lifecycle management: dispose stops tuner unless navigating to fullscreen player
+    // Live preview lifecycle management: dispose stops tuner playback unless navigating to fullscreen player
     DisposableEffect(Unit) {
         onDispose {
             if (!toFullscreen) {
-                tuner.stop()
+                tuner.stopPlayback(clearChannel = false)
             }
         }
     }

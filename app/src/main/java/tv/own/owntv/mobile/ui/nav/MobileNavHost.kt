@@ -113,7 +113,11 @@ fun MobileNavHost(
                             navController.navigate(channelRoute(destination, channelId, openCatchup))
                         },
                         onOpenPlayer = { navController.navigate(PLAYER_ROUTE) },
-                        onOpenGuide = { navController.navigate(MobileDestination.GUIDE.route) },
+                        onOpenGuide = {
+                            navController.navigate(MobileDestination.GUIDE.route) {
+                                launchSingleTop = true
+                            }
+                        },
                     )
                     MobileDestination.DOWNLOADS -> DownloadsScreen(
                         onPlayerOpened = { navController.navigate(PLAYER_ROUTE) },

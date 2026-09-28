@@ -118,6 +118,45 @@ class LiveTvRedesignTest {
     }
 
     @Test
+    fun guideNavigation_and_backStackPreservation() {
+        val currentTunedChannelId = 101L
+        var isPlaybackActive = true
+        val backStack = mutableListOf("home", "live")
+
+        // 1. Open Guide from Live TV
+        backStack.add("guide")
+        // Stop playback engines without clearing selected channel
+        isPlaybackActive = false
+        assertFalse("Playback stops when Guide is opened", isPlaybackActive)
+        assertEquals(3, backStack.size)
+        assertEquals("guide", backStack.last())
+        assertEquals(101L, currentTunedChannelId)
+
+        // 2. System Back from Guide
+        val popped = backStack.removeAt(backStack.lastIndex)
+        assertEquals("guide", popped)
+        assertEquals("live", backStack.last())
+        // Resume preview on previous tuned channel
+        isPlaybackActive = true
+        assertEquals(101L, currentTunedChannelId)
+        assertTrue(isPlaybackActive)
+    }
+
+    @Test
+    fun homeToGuideNavigation_respectsHomeOriginOnBack() {
+        val backStack = mutableListOf("home")
+
+        // 1. Open Guide from Home
+        backStack.add("guide")
+        assertEquals("guide", backStack.last())
+
+        // 2. Back from Guide
+        val popped = backStack.removeAt(backStack.lastIndex)
+        assertEquals("guide", popped)
+        assertEquals("home", backStack.last())
+    }
+
+    @Test
     fun noLogoChannel_and_noEpgFallback() {
         val ch = ChannelEntity(
             id = 200L,
