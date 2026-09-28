@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GoatTV</string>
+    <string name="brand_description">Your complete entertainment experience for live TV, sports, movies, series, and more — all in one place.</string>
     <string name="goat_icon_1">Goat 1</string>
     <string name="goat_icon_2">Goat 2</string>
     <string name="goat_icon_3">Goat 3</string>

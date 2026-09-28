@@ -121,7 +121,7 @@ class SettingsSearchCoverageTest {
     @Test
     fun `every setting on every settings page can be found by search`() {
         val notSettings = setOf(
-            "settings_about", "settings_app_startup_dialog", "settings_join_telegram", "settings_color_picker",
+            "settings_about", "settings_open_source_licenses", "settings_app_startup_dialog", "settings_join_telegram", "settings_color_picker",
             "settings_focus_thickness", "settings_epg_sources_add", "settings_epg_sources_fill_playlist",
             "settings_sources_delete", "settings_sources_edit", "settings_sources_refresh_days_title",
             "common_clear", "settings_glass_effect_title", "settings_glass_preset_custom", "settings_glass_reset_balanced",

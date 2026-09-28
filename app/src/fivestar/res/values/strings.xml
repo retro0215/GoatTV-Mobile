@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">5Star Ultra</string>
+    <string name="brand_description">A premium entertainment experience built for live TV, sports, movies, series, and more.</string>
     <string name="fivestar_icon_1">5Star 1</string>
     <string name="fivestar_icon_2">5Star 2</string>
     <string name="fivestar_icon_3">5Star 3</string>

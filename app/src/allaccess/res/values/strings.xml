@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AllAccess</string>
+    <string name="brand_description">All your entertainment in one place, with live TV, sports, movies, series, and more at your fingertips.</string>
     <string name="allaccess_icon_1">AllAccess 1</string>
     <string name="allaccess_icon_2">AllAccess 2</string>
     <string name="allaccess_icon_3">AllAccess 3</string>

@@ -8,7 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,8 @@ import tv.own.owntv.core.i18n.SupportedLocales
 import tv.own.owntv.core.settings.StartupMode
 import tv.own.owntv.mobile.BuildConfig
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.brand.BrandConfig
+import tv.own.owntv.mobile.ui.components.BrandLockup
 import tv.own.owntv.mobile.ui.components.MobileBottomSheet
 import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.MobileButtonStyle
@@ -175,6 +179,70 @@ fun SettingsAppPage(
 @Composable
 fun AboutPage(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    var showLicenseSheet by remember { mutableStateOf(false) }
+
+    if (BrandConfig.isBranded) {
+        SettingsPage(modifier) {
+            settingsSection(R.string.settings_about) {
+                Column(
+                    Modifier.padding(
+                        horizontal = MobileDimens.ScreenPaddingH,
+                        vertical = MobileDimens.GapSmall,
+                    ),
+                ) {
+                    BrandLockup(
+                        markSize = 40,
+                        textSize = 26,
+                        modifier = Modifier.padding(bottom = MobileDimens.GapSmall),
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(BrandConfig.brandDescriptionRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = MobileDimens.GapSmall),
+                    )
+                }
+
+                SettingRow(
+                    title = stringResource(R.string.settings_open_source_licenses),
+                    subtitle = stringResource(R.string.settings_open_source_summary),
+                    onClick = { showLicenseSheet = true },
+                )
+            }
+        }
+
+        if (showLicenseSheet) {
+            MobileBottomSheet(
+                onDismissRequest = { showLicenseSheet = false },
+                title = stringResource(R.string.settings_open_source_licenses),
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MobileDimens.ScreenPaddingH, vertical = MobileDimens.GapMedium),
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_about_license),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(MobileDimens.GapSmall))
+                    Text(
+                        text = stringResource(R.string.settings_open_source_detail),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        return
+    }
+
     SettingsPage(modifier) {
         settingsSection(R.string.settings_about) {
             Column(
@@ -183,7 +251,6 @@ fun AboutPage(modifier: Modifier = Modifier) {
                     vertical = MobileDimens.GapSmall,
                 ),
             ) {
-                // The logo in the colour the launcher shows, as on the mockup's About row.
                 tv.own.owntv.mobile.ui.components.BrandLockup(
                     markSize = 40,
                     textSize = 26,
@@ -219,8 +286,6 @@ fun AboutPage(modifier: Modifier = Modifier) {
                 onClick = { openLink(context, "https://$GITHUB_REPO") },
             )
 
-            // The link is what a phone user taps; the QR is for the person sitting next to them, and
-            // it is drawn from the address rather than shipped as an image so the two cannot drift.
             SettingRow(
                 title = stringResource(R.string.settings_join_telegram),
                 subtitle = TELEGRAM_LINK,

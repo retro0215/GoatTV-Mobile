@@ -33,4 +33,12 @@
     <string name="supreme_icon_7">Supreme 7</string>
     <string name="supreme_icon_8">Supreme 8</string>
     <string name="setup_create_profile_subtitle">Create a profile</string>
+    <string name="brand_description">Your complete entertainment experience for live TV, sports, movies, series, and more — all in one place.</string>
+    <string name="brand_description_goat">Your complete entertainment experience for live TV, sports, movies, series, and more — all in one place.</string>
+    <string name="brand_description_allaccess">All your entertainment in one place, with live TV, sports, movies, series, and more at your fingertips.</string>
+    <string name="brand_description_fivestar">A premium entertainment experience built for live TV, sports, movies, series, and more.</string>
+    <string name="brand_description_supreme">Entertainment elevated with live TV, sports, movies, series, and more in one streamlined experience.</string>
+    <string name="settings_open_source_licenses">Open Source Licenses</string>
+    <string name="settings_open_source_summary">GPL-3.0 License — Built on open-source media player software</string>
+    <string name="settings_open_source_detail">This application uses open-source software under the GNU General Public License v3.0 (GPL-3.0).</string>
 </resources>
