@@ -50,6 +50,7 @@ import tv.own.owntv.core.sync.remainderText
 import tv.own.owntv.core.sync.summaryText
 import tv.own.owntv.core.sync.warningText
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.brand.BrandConfig
 import tv.own.owntv.mobile.ui.components.MobileBottomSheet
 import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.MobileButtonStyle
@@ -100,7 +101,9 @@ fun SetupFlow(
     // create the very profiles whose playlists this step offers to share.
     var existing by remember { mutableStateOf<List<SourceEntity>>(emptyList()) }
     LaunchedEffect(step) {
-        if (step == Step.ADD_CONTENT) {
+        if (BrandConfig.isBranded && step == Step.DISCLAIMER) {
+            step = Step.CHOICE
+        } else if (step == Step.ADD_CONTENT) {
             existing = runCatching { vm.availableExistingSources() }.getOrDefault(emptyList())
         }
     }
@@ -150,7 +153,7 @@ fun SetupFlow(
             Step.WELCOME -> onCancel?.invoke()
             Step.DISPLAY_SIZE -> step = Step.WELCOME
             Step.DISCLAIMER -> step = Step.DISPLAY_SIZE
-            Step.CHOICE -> step = Step.DISCLAIMER
+            Step.CHOICE -> step = if (BrandConfig.isBranded) Step.DISPLAY_SIZE else Step.DISCLAIMER
             // The step owns its own Back: it has sheets to dismiss first, and once the data has
             // landed there is nothing to go back to.
             Step.SYNC_DEVICE -> Unit
@@ -171,7 +174,7 @@ fun SetupFlow(
             // Before the disclaimer, which is the first screen that is mostly words: if the text is
             // too small to read, that is the screen it first hurts on (#179).
             Step.DISPLAY_SIZE -> DisplaySizeStep(
-                onNext = { step = Step.DISCLAIMER },
+                onNext = { step = if (BrandConfig.isBranded) Step.CHOICE else Step.DISCLAIMER },
                 onBack = { step = Step.WELCOME },
             )
             Step.DISCLAIMER -> DisclaimerStep(
