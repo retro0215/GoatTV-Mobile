@@ -17,6 +17,10 @@ import tv.own.owntv.core.sync.SyncScopeChoice
 import tv.own.owntv.mobile.R
 import java.io.File
 
+import tv.own.owntv.core.database.dao.SourceDao
+import tv.own.owntv.core.model.SourceType
+import tv.own.owntv.mobile.brand.BrandConfig
+
 /**
  * Adding a playlist, or restoring a backup, on the phone.
  *
@@ -33,6 +37,7 @@ import java.io.File
 class SetupViewModel(
     private val importer: SourceImporter,
     private val profileDao: ProfileDao,
+    private val sourceDao: SourceDao,
     private val settings: SettingsRepository,
     private val appScope: CoroutineScope,
     private val context: Context,
@@ -56,8 +61,28 @@ class SetupViewModel(
         series: SyncScopeChoice,
         preferHls: Boolean,
     ) = runImport {
+        val serverUrl = if (BrandConfig.isBranded) BrandConfig.serverEndpoint else server
+        val brandName = if (BrandConfig.isBranded) BrandConfig.brandName else name
+        val trimmedUser = username.trim()
+        val trimmedPass = password
+
+        val activeProfileId = settings.activeProfileIdNow().takeIf { it >= 0 }
+            ?: profileDao.getAllOnce().firstOrNull()?.id
+            ?: -1L
+
+        if (activeProfileId >= 0L) {
+            val existingSources = sourceDao.getAllOnce()
+            val existingBranded = existingSources.firstOrNull {
+                it.type == SourceType.XTREAM && (it.url == serverUrl || (BrandConfig.isBranded && it.name == brandName))
+            }
+            if (existingBranded != null) {
+                // Delete previous duplicate source before re-importing clean updated source
+                sourceDao.delete(existingBranded)
+            }
+        }
+
         importer.xtream(
-            name = name, server = server, username = username, password = password,
+            name = brandName, server = serverUrl, username = trimmedUser, password = trimmedPass,
             userAgent = userAgent, httpReferer = httpReferer, autoRefresh = autoRefresh,
             live = live, movies = movies, series = series, preferHls = preferHls,
         )

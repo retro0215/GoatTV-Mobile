@@ -1,5 +1,7 @@
 package tv.own.owntv.mobile.ui.setup
 
+import tv.own.owntv.mobile.brand.BrandConfig
+import tv.own.owntv.mobile.ui.components.BrandLockup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -157,8 +159,8 @@ fun AddSourceForm(
     }
     fun values() = SourceFormValues(
         kind = kind,
-        name = name,
-        urlOrServer = when (kind) {
+        name = if (BrandConfig.isBranded && name.isBlank()) BrandConfig.brandName else name,
+        urlOrServer = if (BrandConfig.isBranded) BrandConfig.serverEndpoint else when (kind) {
             SourceKind.XTREAM -> server
             SourceKind.M3U -> m3uUrl
             SourceKind.STALKER -> portalUrl
@@ -178,6 +180,67 @@ fun AddSourceForm(
         series = syncSeries,
         preferHls = preferHls,
     )
+
+    if (BrandConfig.isBranded && !editing) {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = MobileDimens.ScreenPaddingH, vertical = MobileDimens.ScreenPaddingV),
+            verticalArrangement = Arrangement.spacedBy(MobileDimens.GapMedium),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            BrandLockup(markSize = 64, textSize = 26, stacked = true)
+
+            Text(
+                text = stringResource(R.string.setup_byo_source_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            MobileTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = stringResource(R.string.setup_username),
+                imeAction = ImeAction.Next,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            MobileTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = stringResource(R.string.setup_password),
+                isPassword = true,
+                imeAction = ImeAction.Done,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            MobileButton(
+                text = stringResource(R.string.setup_continue),
+                onClick = {
+                    onStartXtream(
+                        BrandConfig.brandName,
+                        BrandConfig.serverEndpoint,
+                        username.trim(),
+                        password,
+                        "",
+                        "",
+                        PlaylistRefresh(PlaylistAutoRefresh.STARTUP),
+                        SyncScopeChoice.Now,
+                        SyncScopeChoice.Now,
+                        SyncScopeChoice.Now,
+                        false,
+                    )
+                },
+                enabled = username.isNotBlank() && password.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        return
+    }
 
     Column(
         modifier = modifier
@@ -213,26 +276,30 @@ fun AddSourceForm(
                 },
             )
         }
-        MobileTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = stringResource(R.string.setup_source_name_optional),
-            placeholder = stringResource(R.string.setup_default_iptv),
-            imeAction = ImeAction.Next,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (!BrandConfig.isBranded) {
+            MobileTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = stringResource(R.string.setup_source_name_optional),
+                placeholder = stringResource(R.string.setup_default_iptv),
+                imeAction = ImeAction.Next,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         when (kind) {
             SourceKind.XTREAM -> {
-                MobileTextField(
-                    value = server,
-                    onValueChange = { server = it },
-                    label = stringResource(R.string.setup_server_url),
-                    placeholder = stringResource(R.string.setup_server_example),
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Next,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (!BrandConfig.isBranded) {
+                    MobileTextField(
+                        value = server,
+                        onValueChange = { server = it },
+                        label = stringResource(R.string.setup_server_url),
+                        placeholder = stringResource(R.string.setup_server_example),
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Next,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 MobileTextField(
                     value = username,
                     onValueChange = { username = it },

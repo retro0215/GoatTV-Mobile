@@ -158,7 +158,8 @@ fun MobileShell(
      */
     val loadedProfiles = profiles ?: return
     val activeId = activeProfileId ?: return
-    if (activeId < 0L || loadedProfiles.none { it.id == activeId }) {
+    val activePlaylists by shellViewModel.playlists.collectAsStateWithLifecycle()
+    if (activeId < 0L || loadedProfiles.none { it.id == activeId } || activePlaylists.isEmpty()) {
         // The wizard reports the profile it activated, and that is the unlock — the same handover the
         // television does. Without it the shell would have a valid active profile and no session for
         // it, which is the one state that shows the chooser.
