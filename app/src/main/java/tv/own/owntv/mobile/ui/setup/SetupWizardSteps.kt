@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import tv.own.owntv.core.brand.AppIcon
+import tv.own.owntv.mobile.brand.BrandConfig
 import tv.own.owntv.mobile.ui.components.AppIconPicker
 import tv.own.owntv.mobile.ui.components.BrandLockup
 import tv.own.owntv.core.database.entity.SourceEntity
@@ -68,13 +69,15 @@ fun WelcomeStep(onNext: () -> Unit) {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
-        // The stacked logo, as on the mockup's phone Welcome screen, in the colour the launcher shows.
+        // The stacked logo, as on the mockup's phone Welcome screen.
         BrandLockup(markSize = 64, textSize = 26, stacked = true)
-        Text(
-            text = stringResource(R.string.setup_welcome_tagline),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (!BrandConfig.isBranded) {
+            Text(
+                text = stringResource(R.string.setup_welcome_tagline),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(Modifier.height(MobileDimens.GapMedium))
         // The television offers the language here too, and it must be here rather than in Settings:
         // every screen after this one is text, and a user who cannot read the disclaimer cannot agree

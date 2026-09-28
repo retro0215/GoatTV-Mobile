@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import tv.own.owntv.core.brand.AppIcon
 import tv.own.owntv.core.brand.AppIconSwitcher
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.brand.BrandConfig
 import tv.own.owntv.mobile.ui.theme.glassDialogWindow
 
 /**
@@ -73,6 +74,40 @@ fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
  */
 @Composable
 fun BrandLockup(markSize: Int, textSize: Int, modifier: Modifier = Modifier, stacked: Boolean = false) {
+    if (BrandConfig.isBranded) {
+        val brandName = BrandConfig.brandName
+        val parts = @Composable {
+            Image(
+                painter = painterResource(R.drawable.ic_brand_logo),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(markSize.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+            )
+            Text(
+                text = brandName,
+                fontSize = textSize.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.025).em,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (stacked) {
+            Column(
+                modifier,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy((markSize * 0.2f).dp),
+            ) { parts() }
+        } else {
+            Row(
+                modifier,
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy((markSize * 0.26f).dp),
+            ) { parts() }
+        }
+        return
+    }
+
     val icon = rememberAppliedIcon()
     val scheme = MaterialTheme.colorScheme
     val tvColor = Color(if (scheme.background.luminance() < 0.5f) icon.accent else icon.accentOnLight)
