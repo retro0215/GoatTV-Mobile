@@ -32,4 +32,5 @@
     <string name="supreme_icon_6">Supreme 6</string>
     <string name="supreme_icon_7">Supreme 7</string>
     <string name="supreme_icon_8">Supreme 8</string>
+    <string name="setup_create_profile_subtitle">Create a profile</string>
 </resources>

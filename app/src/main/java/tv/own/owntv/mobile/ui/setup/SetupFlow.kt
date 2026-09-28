@@ -14,12 +14,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,8 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -51,6 +56,7 @@ import tv.own.owntv.core.sync.summaryText
 import tv.own.owntv.core.sync.warningText
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.brand.BrandConfig
+import tv.own.owntv.mobile.ui.components.BrandLockup
 import tv.own.owntv.mobile.ui.components.MobileBottomSheet
 import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.MobileButtonStyle
@@ -295,6 +301,57 @@ private fun SetupChoice(
     onCancel: (() -> Unit)?,
 ) {
     SetupPage {
+        if (BrandConfig.isBranded) {
+            BrandLockup(markSize = 64, textSize = 26, stacked = true)
+            Spacer(Modifier.height(MobileDimens.GapMedium))
+
+            Surface(
+                onClick = onCreateProfile,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MobileDimens.GapSmall),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                ) {
+                    Icon(
+                        imageVector = MobileIcons.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.setup_new_profile),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.setup_create_profile_subtitle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (onCancel != null) {
+                Spacer(Modifier.height(MobileDimens.GapMedium))
+                MobileButton(
+                    text = stringResource(R.string.common_cancel),
+                    onClick = onCancel,
+                    style = MobileButtonStyle.TEXT,
+                )
+            }
+            return@SetupPage
+        }
+
         Text(
             text = stringResource(R.string.setup_set_up_owntv),
             style = MaterialTheme.typography.headlineSmall,
@@ -306,9 +363,6 @@ private fun SetupChoice(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(MobileDimens.GapSmall))
-        // The television's own label, and it has to be: this row leads to the profile editor, not to
-        // a playlist form. Calling it "Add a playlist" described the step after next and left the
-        // profile step looking like it had arrived by mistake.
         MobileListRow(
             title = stringResource(R.string.setup_new_profile),
             subtitle = stringResource(R.string.setup_create_profile_add_sources),
