@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Supreme TV</string>
+    <string name="supreme_icon_1">Supreme 1</string>
+    <string name="supreme_icon_2">Supreme 2</string>
+    <string name="supreme_icon_3">Supreme 3</string>
+    <string name="supreme_icon_4">Supreme 4</string>
+    <string name="supreme_icon_5">Supreme 5</string>
+    <string name="supreme_icon_6">Supreme 6</string>
+    <string name="supreme_icon_7">Supreme 7</string>
+    <string name="supreme_icon_8">Supreme 8</string>
 </resources>

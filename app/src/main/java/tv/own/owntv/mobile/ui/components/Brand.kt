@@ -123,6 +123,28 @@ fun AppIcon.fivestarLabelRes(): Int = when (this) {
     AppIcon.OLIVE_CREAM -> R.string.fivestar_icon_8
 }
 
+fun AppIcon.supremeRes(): Int = when (this) {
+    AppIcon.PETROL -> R.drawable.supreme_icon_1
+    AppIcon.SUNFLOWER -> R.drawable.supreme_icon_2
+    AppIcon.COBALT -> R.drawable.supreme_icon_3
+    AppIcon.TOMATO -> R.drawable.supreme_icon_4
+    AppIcon.BOARD -> R.drawable.supreme_icon_5
+    AppIcon.EGGSHELL -> R.drawable.supreme_icon_6
+    AppIcon.OLIVE -> R.drawable.supreme_icon_7
+    AppIcon.OLIVE_CREAM -> R.drawable.supreme_icon_8
+}
+
+fun AppIcon.supremeLabelRes(): Int = when (this) {
+    AppIcon.PETROL -> R.string.supreme_icon_1
+    AppIcon.SUNFLOWER -> R.string.supreme_icon_2
+    AppIcon.COBALT -> R.string.supreme_icon_3
+    AppIcon.TOMATO -> R.string.supreme_icon_4
+    AppIcon.BOARD -> R.string.supreme_icon_5
+    AppIcon.EGGSHELL -> R.string.supreme_icon_6
+    AppIcon.OLIVE -> R.string.supreme_icon_7
+    AppIcon.OLIVE_CREAM -> R.string.supreme_icon_8
+}
+
 /** The flat flip-card mark (no shadow, no next card). At 32 dp and below the simpler small drawing. */
 @Composable
 fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
@@ -144,6 +166,13 @@ fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
         MobileBrand.FIVESTAR -> {
             Image(
                 painter = painterResource(icon.fivestarRes()),
+                contentDescription = null,
+                modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
+            )
+        }
+        MobileBrand.SUPREME -> {
+            Image(
+                painter = painterResource(icon.supremeRes()),
                 contentDescription = null,
                 modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
             )
@@ -267,6 +296,7 @@ fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifi
             MobileBrand.GOAT -> selected.goatLabelRes()
             MobileBrand.ALLACCESS -> selected.allaccessLabelRes()
             MobileBrand.FIVESTAR -> selected.fivestarLabelRes()
+            MobileBrand.SUPREME -> selected.supremeLabelRes()
             else -> selected.label
         }
         Text(
