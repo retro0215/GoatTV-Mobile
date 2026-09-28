@@ -101,6 +101,28 @@ fun AppIcon.allaccessLabelRes(): Int = when (this) {
     AppIcon.OLIVE_CREAM -> R.string.allaccess_icon_8
 }
 
+fun AppIcon.fivestarRes(): Int = when (this) {
+    AppIcon.PETROL -> R.drawable.fivestar_icon_1
+    AppIcon.SUNFLOWER -> R.drawable.fivestar_icon_2
+    AppIcon.COBALT -> R.drawable.fivestar_icon_3
+    AppIcon.TOMATO -> R.drawable.fivestar_icon_4
+    AppIcon.BOARD -> R.drawable.fivestar_icon_5
+    AppIcon.EGGSHELL -> R.drawable.fivestar_icon_6
+    AppIcon.OLIVE -> R.drawable.fivestar_icon_7
+    AppIcon.OLIVE_CREAM -> R.drawable.fivestar_icon_8
+}
+
+fun AppIcon.fivestarLabelRes(): Int = when (this) {
+    AppIcon.PETROL -> R.string.fivestar_icon_1
+    AppIcon.SUNFLOWER -> R.string.fivestar_icon_2
+    AppIcon.COBALT -> R.string.fivestar_icon_3
+    AppIcon.TOMATO -> R.string.fivestar_icon_4
+    AppIcon.BOARD -> R.string.fivestar_icon_5
+    AppIcon.EGGSHELL -> R.string.fivestar_icon_6
+    AppIcon.OLIVE -> R.string.fivestar_icon_7
+    AppIcon.OLIVE_CREAM -> R.string.fivestar_icon_8
+}
+
 /** The flat flip-card mark (no shadow, no next card). At 32 dp and below the simpler small drawing. */
 @Composable
 fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
@@ -115,6 +137,13 @@ fun BrandMark(icon: AppIcon, size: Dp, modifier: Modifier = Modifier) {
         MobileBrand.ALLACCESS -> {
             Image(
                 painter = painterResource(icon.allaccessRes()),
+                contentDescription = null,
+                modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
+            )
+        }
+        MobileBrand.FIVESTAR -> {
+            Image(
+                painter = painterResource(icon.fivestarRes()),
                 contentDescription = null,
                 modifier = modifier.size(size).clip(RoundedCornerShape(8.dp)),
             )
@@ -237,6 +266,7 @@ fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifi
         val labelRes = when (brand) {
             MobileBrand.GOAT -> selected.goatLabelRes()
             MobileBrand.ALLACCESS -> selected.allaccessLabelRes()
+            MobileBrand.FIVESTAR -> selected.fivestarLabelRes()
             else -> selected.label
         }
         Text(

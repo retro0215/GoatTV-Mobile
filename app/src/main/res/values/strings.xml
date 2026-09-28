@@ -16,4 +16,12 @@
     <string name="allaccess_icon_6">AllAccess 6</string>
     <string name="allaccess_icon_7">AllAccess 7</string>
     <string name="allaccess_icon_8">AllAccess 8</string>
+    <string name="fivestar_icon_1">5Star 1</string>
+    <string name="fivestar_icon_2">5Star 2</string>
+    <string name="fivestar_icon_3">5Star 3</string>
+    <string name="fivestar_icon_4">5Star 4</string>
+    <string name="fivestar_icon_5">5Star 5</string>
+    <string name="fivestar_icon_6">5Star 6</string>
+    <string name="fivestar_icon_7">5Star 7</string>
+    <string name="fivestar_icon_8">5Star 8</string>
 </resources>
