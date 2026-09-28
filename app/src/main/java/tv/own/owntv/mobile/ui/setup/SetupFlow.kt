@@ -109,6 +109,8 @@ fun SetupFlow(
     LaunchedEffect(step) {
         if (BrandConfig.isBranded && step == Step.DISCLAIMER) {
             step = Step.CHOICE
+        } else if (BrandConfig.isBranded && step == Step.ADD_CONTENT) {
+            step = Step.FORM
         } else if (step == Step.ADD_CONTENT) {
             existing = runCatching { vm.availableExistingSources() }.getOrDefault(emptyList())
         }
@@ -168,7 +170,10 @@ fun SetupFlow(
             // reached when there is one, and the compiler knows it.
             Step.ADD_CONTENT -> if (firstRun) step = Step.CREATE_PROFILE else onCancel()
             Step.EXISTING -> step = Step.ADD_CONTENT
-            Step.FORM -> { vm.reset(); step = Step.ADD_CONTENT }
+            Step.FORM -> {
+                vm.reset()
+                step = if (BrandConfig.isBranded) Step.CHOICE else Step.ADD_CONTENT
+            }
             Step.RESTORE -> { vm.reset(); step = backupOrigin }
             Step.IMPORTING -> Unit // the buttons on that screen decide; a stray swipe must not abandon a sync
         }
@@ -207,7 +212,7 @@ fun SetupFlow(
                 takenNames = emptySet(),
                 onConfirm = { name, avatar, kids, pin ->
                     vm.createProfile(name.ifBlank { defaultProfileName }, avatar, kids, pin) {
-                        step = Step.ADD_CONTENT
+                        step = if (BrandConfig.isBranded) Step.FORM else Step.ADD_CONTENT
                     }
                 },
                 onDismiss = { step = Step.CHOICE },
