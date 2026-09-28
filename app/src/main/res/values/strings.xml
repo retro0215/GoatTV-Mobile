@@ -48,4 +48,10 @@
     <string name="live_search_channels">Search channels…</string>
     <string name="live_no_program_info">No program information</string>
     <string name="live_badge_label">LIVE</string>
+
+    <string name="guide_watch_live">Watch Live</string>
+    <string name="guide_refresh_button">Refresh</string>
+    <string name="guide_select_date">Select Date</string>
+    <string name="guide_today">Today</string>
+    <string name="guide_tomorrow">Tomorrow</string>
 </resources>
