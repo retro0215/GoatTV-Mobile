@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Launch themes for Supreme TV flavor.
+      Overrides the starting window splash icon for all launcher icon choices
+      so that cold startup always displays Supreme TV's official brand logo
+      on the dark background, without any stock OwnTV splash artwork or wordmark.
+    -->
+    <style name="Theme.OwnTVMobile.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/owntv_window_bg</item>
+        <item name="postSplashScreenTheme">@style/Theme.OwnTVMobile</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+
+    <style name="Theme.OwnTVMobile.Starting.Petrol">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.Sunflower">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.Cobalt">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.Tomato">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.Board">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.Eggshell">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.Olive">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+    <style name="Theme.OwnTVMobile.Starting.OliveCream">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/brand_splash_icon</item>
+    </style>
+</resources>
