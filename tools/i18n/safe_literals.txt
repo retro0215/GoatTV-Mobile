@@ -223,7 +223,6 @@
 1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/ChannelActions.kt	rename
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/ChannelActions.kt	−
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/ChannelDetailScreen.kt	jump-back
-1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/LiveScreen.kt	live
 1	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/LiveViewModel.kt	\0
 1	log	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/LiveViewModel.kt	manual
 2	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/recordings/RecordingsScreen.kt	\0

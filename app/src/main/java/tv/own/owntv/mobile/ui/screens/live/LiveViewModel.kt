@@ -212,6 +212,13 @@ class LiveViewModel(
     private val _selected = MutableStateFlow<LiveKey>(LiveKey.All)
     val selected: StateFlow<LiveKey> = _selected
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
     /** Playlist names, but only when more than one is active — a single-playlist user does not need
      *  every row to repeat where it came from. */
     val providerNames: StateFlow<Map<Long, String>> = ctx
@@ -235,14 +242,20 @@ class LiveViewModel(
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing
 
-    private data class Args(val key: LiveKey, val ctx: ActiveProfileSources, val cust: SectionCustomizations, val hidden: Set<Long>)
+    private data class Args(
+        val key: LiveKey,
+        val query: String,
+        val ctx: ActiveProfileSources,
+        val cust: SectionCustomizations,
+        val hidden: Set<Long>,
+    )
 
     val channels: Flow<PagingData<ChannelEntity>> =
-        combine(_selected, ctx, custom, hiddenCategoryIds, ::Args)
+        combine(_selected, _searchQuery, ctx, custom, hiddenCategoryIds, ::Args)
             // A folder gaining or losing a manual order changes which query is correct, and the
             // cheap one does not observe content_order — so the pager has to be rebuilt.
             .combine(orderedContexts) { args, _ -> args }
-            .flatMapLatest { (key, c, cust, hidden) ->
+            .flatMapLatest { (key, query, c, cust, hidden) ->
                 if (c.profileId < 0) {
                     flowOf(PagingData.empty())
                 } else {
@@ -259,7 +272,7 @@ class LiveViewModel(
                             key = key,
                             profileId = c.profileId,
                             sourceIds = c.liveSourceIds,
-                            query = "",
+                            query = query,
                             sort = sortMode.value,
                             channelDao = channelDao,
                             customCategoryDao = customCategoryDao,

@@ -34,4 +34,5 @@
 1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	room_id
 1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	sort_order
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	promotions
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/LiveScreen.kt	\0
 2	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	\0

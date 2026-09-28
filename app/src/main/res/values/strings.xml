@@ -41,4 +41,11 @@
     <string name="settings_open_source_licenses">Open Source Licenses</string>
     <string name="settings_open_source_summary">GPL-3.0 License — Built on open-source media player software</string>
     <string name="settings_open_source_detail">This application uses open-source software under the GNU General Public License v3.0 (GPL-3.0).</string>
+
+    <string name="live_categories_button">Categories</string>
+    <string name="live_tv_guide_button">TV Guide</string>
+    <string name="live_search_categories">Search categories…</string>
+    <string name="live_search_channels">Search channels…</string>
+    <string name="live_no_program_info">No program information</string>
+    <string name="live_badge_label">LIVE</string>
 </resources>
