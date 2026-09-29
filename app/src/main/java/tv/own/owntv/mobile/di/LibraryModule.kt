@@ -5,6 +5,7 @@ import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import tv.own.owntv.mobile.ui.screens.library.DetailViewModel
 import tv.own.owntv.mobile.ui.screens.library.LibraryViewModel
+import tv.own.owntv.mobile.ui.screens.library.ProviderVodInfoLoader
 import tv.own.owntv.mobile.ui.screens.library.VodTuner
 
 /**
@@ -37,6 +38,8 @@ val libraryModule = module {
             watchSession = get(),
         )
     }
+    // One per process, so the session cache of what the playlist said about a title is shared.
+    single { ProviderVodInfoLoader(sourceDao = get(), http = get()) }
     viewModelOf(::LibraryViewModel)
     viewModelOf(::DetailViewModel)
 }

@@ -1,6 +1,5 @@
 package tv.own.owntv.mobile.ui.screens.library
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -67,6 +66,7 @@ class DetailViewModel(
     private val seriesSortOrderDao: SeriesSortOrderDao,
     private val metadata: MetadataRepository,
     private val subtitleController: SubtitleController,
+    private val providerInfo: ProviderVodInfoLoader,
 ) : ViewModel() {
 
     private data class Target(val tab: LibraryTab, val id: Long)
@@ -93,6 +93,14 @@ class DetailViewModel(
 
     /** TMDB metadata including trailerKey, plot, etc. */
     val meta: StateFlow<MetadataCacheEntity?> = _meta
+
+    private val _provider = MutableStateFlow<ProviderVodInfo?>(null)
+
+    /**
+     * What the playlist says about the open title: its own plot and YouTube trailer. Loaded apart from
+     * TMDB so a slow or refused TMDB lookup can never hold back the provider's own answer.
+     */
+    val provider: StateFlow<ProviderVodInfo?> = _provider
 
     val episodes: StateFlow<List<EpisodeEntity>> = target
         .flatMapLatest { t ->
@@ -230,15 +238,21 @@ class DetailViewModel(
         _movie.value = null
         _show.value = null
         _meta.value = null
+        _provider.value = null
+        viewModelScope.launch {
+            val info = when (tab) {
+                LibraryTab.MOVIES -> movieDao.getById(id)?.let { providerInfo.movie(it) }
+                LibraryTab.SERIES -> seriesDao.getSeriesById(id)?.let { providerInfo.series(it) }
+            }
+            if (target.value == Target(tab, id)) _provider.value = info
+        }
         viewModelScope.launch {
             profileId.value = currentProfileId() ?: -1L
             if (tab == LibraryTab.MOVIES) {
                 val m = movieDao.getById(id)
                 _movie.value = m
                 if (m != null) {
-                    val resolved = runCatching { metadata.resolveMovie(m) }.getOrNull()
-                    _meta.value = resolved
-                    Log.d("VOD_TRAILER_DIAG", "MOVIE: id=$id, name=${m.name}, plot=${m.plot}, trailerKey=${resolved?.trailerKey}, tmdbId=${resolved?.tmdbId}, resolvedNull=${resolved == null}")
+                    _meta.value = runCatching { metadata.resolveMovie(m) }.getOrNull()
                 }
                 return@launch
             }
@@ -247,9 +261,7 @@ class DetailViewModel(
             _show.value = entity
             if (entity != null) {
                 seriesRepository.loadEpisodes(entity)
-                val resolved = runCatching { metadata.resolveSeries(entity) }.getOrNull()
-                _meta.value = resolved
-                Log.d("VOD_TRAILER_DIAG", "SERIES: id=$id, name=${entity.name}, plot=${entity.plot}, trailerKey=${resolved?.trailerKey}, tmdbId=${resolved?.tmdbId}, resolvedNull=${resolved == null}")
+                _meta.value = runCatching { metadata.resolveSeries(entity) }.getOrNull()
             }
             _loading.value = false
             val pid = profileId.value

@@ -188,6 +188,22 @@
 1	file-path	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/LibraryViewModel.kt	$stem.${containerExt ?: StorageAccess.extOf(streamUrl)}
 1	file-path	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/LibraryViewModel.kt	${StorageAccess.sanitize(movie.name)}.
 1	file-path	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/LibraryViewModel.kt	episode-$episodeNumber
+1	log	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	$action failed: ${it.javaClass.simpleName}
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	$action:$sourceId:$remoteId
+1	url	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	${s.url.trimEnd('/')}/player_api.php?username=$user&password=$pass&action=$action&$param=$remote
+1	log	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	ProviderVodInfo
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	UTF-8
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	backdrop_path
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	description
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	get_series_info
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	get_vod_info
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	info
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	null
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	overview
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	plot
+1	uri	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	series_id
+1	uri	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	vod_id
+1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/ProviderVodInfo.kt	youtube_trailer
 2	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodActions.kt	\0
 1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodActions.kt	delete_subtitles
 1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodActions.kt	download
@@ -203,6 +219,13 @@
 1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodActions.kt	remove_history
 1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodActions.kt	set_tmdb_name
 1	preference-key	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodActions.kt	tmdb_details
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	<!DOCTYPE html> <html> <head> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <style> html, body { margin:0; padding:0; background-color:#000; overflow:hidden; } #player { position:fixed; top:0; left:0; border:0; display:block; } </style> </head> <body> <div id="player"></div> <script> var START_MUTED = $startMuted; var player; var started = false; var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag); // Sized in pixels, never by CSS: inside the app's scrolling list the WebView starts out 0 px // tall, and percentage and vh heights stay resolved against that — YouTube's iframe came out // 0 px high, so the trailer was heard, never seen, and YouTube paused it as too small to watch. function fitPlayer() { var w = window.innerWidth, h = window.innerHeight; if (player && player.setSize && w > 0 && h > 0) player.setSize(w, h); } window.addEventListener('resize', fitPlayer); function onYouTubeIframeAPIReady() { player = new YT.Player('player', { height: String(window.innerHeight || 1), width: String(window.innerWidth || 1), videoId: '$videoId', playerVars: { 'autoplay': 1, 'mute': START_MUTED ? 1 : 0, 'controls': 0, 'playsinline': 1, 'rel': 0, 'modestbranding': 1, 'enablejsapi': 1, 'origin': '$BASE_URL' }, events: { 'onReady': onPlayerReady, 'onStateChange': onPlayerStateChange, 'onError': onPlayerError } }); } function onPlayerReady(event) { fitPlayer(); if (START_MUTED) { event.target.mute(); } else { event.target.unMute(); } event.target.playVideo(); setTimeout(function() { var state = player.getPlayerState(); if (!started && state !== 1 && state !== 3) { $JS_BRIDGE.blocked(); } }, $AUTOPLAY_CHECK_MS); } function onPlayerStateChange(event) { if (event.data === 1) { started = true; $JS_BRIDGE.playing(); } } function onPlayerError(event) { $JS_BRIDGE.error(event.data); } function mutePlayer() { if (player && player.mute) player.mute(); } function unmutePlayer() { if (player && player.unMute) player.unMute(); } function pausePlayer() { if (player && player.pauseVideo) player.pauseVideo(); } function resumePlayer() { if (player && player.playVideo && started) player.playVideo(); } function playWithSound() { if (player) { player.unMute(); player.playVideo(); } } </script> </body> </html>
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	TrailerBridge
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	window.mutePlayer && mutePlayer();
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	window.pausePlayer && pausePlayer();
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	window.playWithSound && playWithSound();
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	window.resumePlayer && resumePlayer();
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	window.unmutePlayer && unmutePlayer();
 1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTuner.kt	EPISODE
 1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTuner.kt	MOVIE
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTuner.kt	SERIES

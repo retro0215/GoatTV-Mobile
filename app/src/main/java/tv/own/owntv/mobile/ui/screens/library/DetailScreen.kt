@@ -94,6 +94,7 @@ fun DetailScreen(
     val movie by vm.movie.collectAsStateWithLifecycle()
     val show by vm.show.collectAsStateWithLifecycle()
     val meta by vm.meta.collectAsStateWithLifecycle()
+    val provider by vm.provider.collectAsStateWithLifecycle()
     val episodes by vm.episodes.collectAsStateWithLifecycle()
     val seasons by vm.seasons.collectAsStateWithLifecycle()
     val season by vm.season.collectAsStateWithLifecycle()
@@ -113,7 +114,7 @@ fun DetailScreen(
     val title = movie?.name ?: show?.name.orEmpty()
     val plot = movie?.plot ?: show?.plot
     val poster = movie?.posterUrl ?: show?.posterUrl
-    val backdrop = movie?.backdropUrl ?: show?.backdropUrl
+    val backdrop = firstPresent(movie?.backdropUrl ?: show?.backdropUrl, provider?.backdropUrl)
     val year = movie?.year ?: show?.year
     val rating = movie?.rating ?: show?.rating
     // Null until the show has loaded; then the last-watched season, or its first.
@@ -140,7 +141,8 @@ fun DetailScreen(
     LazyColumn(state = listState, modifier = modifier.fillMaxSize()) {
         item {
             VodTrailerHero(
-                trailerKey = meta?.trailerKey?.takeIf { it.isNotBlank() },
+                // The playlist's own trailer first; TMDB's only where the playlist names none.
+                trailerKey = firstPresent(provider?.trailer, meta?.trailerKey),
                 backdropUrl = backdrop,
                 posterUrl = poster,
                 isPlayingVod = isPlayingVod,
@@ -230,9 +232,9 @@ fun DetailScreen(
                         }
                     }
                 }
-                val descriptionText = movie?.plot?.takeIf { it.isNotBlank() }
-                    ?: show?.plot?.takeIf { it.isNotBlank() }
-                    ?: meta?.overview?.takeIf { it.isNotBlank() }
+                // The catalogue row, then what the playlist says when opened, then TMDB. Films have no
+                // plot in the catalogue on Xtream, so for them the second is the usual answer.
+                val descriptionText = firstPresent(movie?.plot ?: show?.plot, provider?.plot, meta?.overview)
 
                 if (!descriptionText.isNullOrBlank()) {
                     ExpandableDescription(
@@ -654,6 +656,9 @@ private fun EpisodeEntity.rowTitle(): String = if (name.isBlank()) {
     stringResource(R.string.content_season_episode_title, seasonNumber, episodeNumber, name)
 }
 
+/** The first of [candidates] with something in it — how every detail field picks its source. */
+internal fun firstPresent(vararg candidates: String?): String? = candidates.firstOrNull { !it.isNullOrBlank() }
+
 @Composable
 private fun Chip(label: String) {
     AssistChip(onClick = { }, label = { Text(label) })
@@ -672,7 +677,8 @@ private fun ExpandableDescription(
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // On the glass panel, the variant colour read as faint grey on a bright backdrop.
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = if (expanded) Int.MAX_VALUE else maxCollapsedLines,
             overflow = TextOverflow.Ellipsis,
             onTextLayout = { textLayoutResult ->
