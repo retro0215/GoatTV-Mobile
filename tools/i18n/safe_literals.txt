@@ -25,8 +25,15 @@
 1	protocol	app/src/main/java/tv/own/owntv/mobile/MainActivity.kt	pip_action
 1	protocol	app/src/main/java/tv/own/owntv/mobile/MainActivity.kt	toggle
 1	protocol	app/src/main/java/tv/own/owntv/mobile/MainActivity.kt	tv.own.owntv.mobile.PIP
-1	technical	app/src/main/java/tv/own/owntv/mobile/OwnTVMobileApp.kt	ahXN00/OwnTV_Mobile
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	5Star-Ultra-Mobile
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	5star-ultra-mobile-v
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	AllAccess-Mobile
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	GoatTV-Mobile
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	Supreme-TV-Mobile
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	allaccess-mobile-v
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	goattv-mobile-v
 4	url	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	https://bp-v2.net
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	supreme-tv-mobile-v
 1	protocol	app/src/main/java/tv/own/owntv/mobile/cast/CastPlaybackEngine.kt	CAST
 1	file-path	app/src/main/java/tv/own/owntv/mobile/cast/CastRequest.kt	.aac
 1	file-path	app/src/main/java/tv/own/owntv/mobile/cast/CastRequest.kt	.m3u8
@@ -665,3 +672,44 @@
 1	empty	app/src/main/java/tv/own/owntv/mobile/ui/theme/MobileGlass.kt	\0
 1	log	app/src/main/java/tv/own/owntv/mobile/ui/theme/MobileGlass.kt	glassPress
 2	empty	app/src/main/java/tv/own/owntv/mobile/ui/theme/MobileTheme.kt	\0
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileReleaseTrack.kt	$assetBaseName-v$version.apk
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileReleaseTrack.kt	$assetBaseName-x86_64-v$version.apk
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileReleaseTrack.kt	$tagPrefix$version
+1	regex	app/src/main/java/tv/own/owntv/mobile/update/MobileReleaseTrack.kt	^(\\d{1,4})\\.(\\d{1,2})\\.(\\d{1,2})$
+1	url	app/src/main/java/tv/own/owntv/mobile/update/MobileReleaseTrack.kt	https://github.com/$repo/releases/download/${track.tagFor(version)}/$name
+1	empty	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	\0
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	%02x
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	APK is ${archive.versionName} ($archiveCode), release is ${release.version} (${release.versionCode})
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	Accept
+2	compiler	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	DEPRECATION
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	GoatTV-Mobile
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	MobileUpdate
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	SHA-256
+2	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	User-Agent
+1	mime	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	application/vnd.github+json
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	assets
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	body
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	browser_download_url
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	draft
+1	url	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	https://api.github.com/repos/$repo/releases?per_page=100
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	install cancelled by user
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	install refused status=$status message=$message
+1	file-path	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	mobile-update
+1	file-path	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	mobile-update.apk
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	name
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	no release repository configured
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	not a release list
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	package ${archive.packageName}, expected $expectedPackage (installed ${context.packageName})
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	prerelease
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	signing certificate does not match the installed app
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	size
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	size: got $copied bytes, release lists ${release.apkSize}
+1	json	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	tag_name
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	tv.own.owntv.mobile.UPDATE_INSTALL_STATUS
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	unparseable APK (${apk.length()} bytes)
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	update check failed: ${error.message}
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	update download failed: ${error.message}
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	update installed
+1	file-path	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	updates
+1	log	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	versionCode $archiveCode is not above installed $installedCode
+1	protocol	app/src/main/java/tv/own/owntv/mobile/update/MobileUpdateManager.kt	x86_64

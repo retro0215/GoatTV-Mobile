@@ -16,6 +16,7 @@ import tv.own.owntv.core.database.entity.SourceEntity
 import tv.own.owntv.core.model.SourceType
 import kotlinx.coroutines.delay
 import tv.own.owntv.core.update.UpdateManager
+import tv.own.owntv.mobile.update.MobileUpdateManager
 import tv.own.owntv.mobile.ui.screens.settings.SettingsChoice
 import tv.own.owntv.mobile.ui.screens.settings.SettingsChoiceSheet
 import tv.own.owntv.mobile.ui.screens.settings.UpdateSheet
@@ -343,7 +344,7 @@ fun MobileShell(
     // — "checking…" and "you are up to date" are answers to a question nobody asked, and on a phone
     // they would land on top of what the user opened the app to do. A failure is silent for the same
     // reason; Settings → App → Check for updates says it out loud, on request.
-    val updateManager: UpdateManager = koinInject()
+    val updateManager: MobileUpdateManager = koinInject()
     val updateCheckOnStart by settings.updateCheckOnStart.collectAsStateWithLifecycle(initialValue = false)
     val updateState by updateManager.state.collectAsStateWithLifecycle()
     var updateChecked by remember { mutableStateOf(false) }

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.koinInject
 import tv.own.owntv.core.update.UpdateManager
+import tv.own.owntv.mobile.update.MobileUpdateManager
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.ui.components.MobileBottomSheet
 import tv.own.owntv.mobile.ui.components.MobileButton
@@ -42,9 +43,10 @@ import tv.own.owntv.mobile.ui.theme.MobileDimens
 /**
  * The in-app updater, as a bottom sheet.
  *
- * Every state, string and decision is the television's — the whole state machine lives in core's
- * [UpdateManager], which is already a Koin `single` there, so this file is the phone's shape for it
- * and nothing more. The television draws a centred dialog because a remote has nowhere better to
+ * Every state and string is the television's — core's [UpdateManager] states and failures — but
+ * the releases are found, downloaded and checked by [MobileUpdateManager], which reads only this
+ * brand's track in the shared Mobile repository. This file is the phone's shape for it and nothing
+ * more. The television draws a centred dialog because a remote has nowhere better to
  * look; a phone gets a sheet, where a thumb already is.
  *
  * [checkOnOpen] makes opening the sheet start a fresh check, which is what the Settings row wants.
@@ -53,7 +55,7 @@ import tv.own.owntv.mobile.ui.theme.MobileDimens
  */
 @Composable
 fun UpdateSheet(onDismiss: () -> Unit, checkOnOpen: Boolean = false) {
-    val manager: UpdateManager = koinInject()
+    val manager: MobileUpdateManager = koinInject()
     val state by manager.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {

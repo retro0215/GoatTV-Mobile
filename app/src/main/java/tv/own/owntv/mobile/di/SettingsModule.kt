@@ -19,6 +19,9 @@ import tv.own.owntv.mobile.ui.screens.settings.customize.CustomizeViewModel
  * settings shares one.
  */
 val settingsModule = module {
+    // This brand's updater. Core's UpdateManager is still registered by core but never asked here:
+    // it reads the whole repository's latest release, which could be any of the four brands'.
+    single { tv.own.owntv.mobile.update.MobileUpdateManager(androidContext(), get()) }
     viewModel {
         SettingsViewModel(
             context = androidContext(),

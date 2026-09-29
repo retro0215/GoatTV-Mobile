@@ -2,6 +2,7 @@ package tv.own.owntv.mobile.brand
 
 import tv.own.owntv.mobile.BuildConfig
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.update.MobileReleaseTrack
 
 enum class MobileBrand(
     val brandId: String,
@@ -9,11 +10,25 @@ enum class MobileBrand(
     val applicationId: String,
     val defaultEndpoint: String,
     val descriptionRes: Int,
+    /** This brand's own releases in the shared GoatTV-Mobile repository — never another brand's. */
+    val releaseTrack: MobileReleaseTrack,
 ) {
-    GOAT("goat", "GoatTV", "tv.goat.tv.mobile", "https://bp-v2.net", R.string.brand_description_goat),
-    ALLACCESS("allaccess", "AllAccess", "tv.allaccess.app.mobile", "https://bp-v2.net", R.string.brand_description_allaccess),
-    FIVESTAR("fivestar", "5Star Ultra", "tv.fivestar.ultra.mobile", "https://bp-v2.net", R.string.brand_description_fivestar),
-    SUPREME("supreme", "Supreme TV", "tv.supreme.app.mobile", "https://bp-v2.net", R.string.brand_description_supreme),
+    GOAT(
+        "goat", "GoatTV", "tv.goat.tv.mobile", "https://bp-v2.net", R.string.brand_description_goat,
+        MobileReleaseTrack(tagPrefix = "goattv-mobile-v", assetBaseName = "GoatTV-Mobile"),
+    ),
+    ALLACCESS(
+        "allaccess", "AllAccess", "tv.allaccess.app.mobile", "https://bp-v2.net", R.string.brand_description_allaccess,
+        MobileReleaseTrack(tagPrefix = "allaccess-mobile-v", assetBaseName = "AllAccess-Mobile"),
+    ),
+    FIVESTAR(
+        "fivestar", "5Star Ultra", "tv.fivestar.ultra.mobile", "https://bp-v2.net", R.string.brand_description_fivestar,
+        MobileReleaseTrack(tagPrefix = "5star-ultra-mobile-v", assetBaseName = "5Star-Ultra-Mobile"),
+    ),
+    SUPREME(
+        "supreme", "Supreme TV", "tv.supreme.app.mobile", "https://bp-v2.net", R.string.brand_description_supreme,
+        MobileReleaseTrack(tagPrefix = "supreme-tv-mobile-v", assetBaseName = "Supreme-TV-Mobile"),
+    ),
 }
 
 object BrandConfig {

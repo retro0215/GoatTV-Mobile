@@ -62,9 +62,11 @@ import java.util.Date
  *
  * **This page once said there would never be an update check here**, on the grounds that a phone
  * gets its updates from the store it came from. This app does not come from a store — it is
- * sideloaded — so nothing else was ever going to tell anyone a new version existed. It is the
- * television's updater exactly: core's `UpdateManager` and core's strings, in a sheet instead of a
- * dialog. It needs `REQUEST_INSTALL_PACKAGES`, which the manifest now declares and explains.
+ * sideloaded — so nothing else was ever going to tell anyone a new version existed. It shows the
+ * television's updater states and core's strings, in a sheet instead of a dialog, but releases come
+ * from `MobileUpdateManager`, which reads only this brand's track and checks the APK's package,
+ * signer and version before installing. It needs `REQUEST_INSTALL_PACKAGES`, which the manifest
+ * declares and explains.
  *
  * About and the error log used to be here too; a page of facts and a log are not preferences, so
  * both are More pages now — see [AboutPage] and [SettingsErrorLogPage].
