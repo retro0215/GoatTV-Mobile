@@ -36,5 +36,14 @@
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideScreen.kt	\0
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideScreen.kt	EEEdMMM
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	promotions
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	<!DOCTYPE html> <html> <head> <style> body, html { margin:0; padding:0; width:100%; height:100%; background-color:#000; overflow:hidden; } iframe { width:100%; height:100%; border:none; } </style> </head> <body> <iframe id="player" src="https://www.youtube-nocookie.com/embed/$trailerKey?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen> </iframe> </body> </html>
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	DEPRECATION
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	SetJavaScriptEnabled
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	about:blank
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	document.getElementById('player').contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	document.getElementById('player').contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	https://www.youtube-nocookie.com
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	text/html
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	utf-8
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/LiveScreen.kt	\0
 2	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	\0

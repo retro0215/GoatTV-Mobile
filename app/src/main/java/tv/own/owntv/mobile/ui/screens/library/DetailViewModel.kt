@@ -88,6 +88,11 @@ class DetailViewModel(
     private val _show = MutableStateFlow<SeriesEntity?>(null)
     val show: StateFlow<SeriesEntity?> = _show
 
+    private val _meta = MutableStateFlow<MetadataCacheEntity?>(null)
+
+    /** TMDB metadata including trailerKey, plot, etc. */
+    val meta: StateFlow<MetadataCacheEntity?> = _meta
+
     val episodes: StateFlow<List<EpisodeEntity>> = target
         .flatMapLatest { t ->
             if (t?.tab == LibraryTab.SERIES) seriesDao.episodesBySeries(t.id) else flowOf(emptyList())
@@ -223,16 +228,24 @@ class DetailViewModel(
         _season.value = null
         _movie.value = null
         _show.value = null
+        _meta.value = null
         viewModelScope.launch {
             profileId.value = currentProfileId() ?: -1L
             if (tab == LibraryTab.MOVIES) {
-                _movie.value = movieDao.getById(id)
+                val m = movieDao.getById(id)
+                _movie.value = m
+                if (m != null) {
+                    _meta.value = runCatching { metadata.resolveMovie(m) }.getOrNull()
+                }
                 return@launch
             }
             _loading.value = true
             val entity = seriesDao.getSeriesById(id)
             _show.value = entity
-            if (entity != null) seriesRepository.loadEpisodes(entity)
+            if (entity != null) {
+                seriesRepository.loadEpisodes(entity)
+                _meta.value = runCatching { metadata.resolveSeries(entity) }.getOrNull()
+            }
             _loading.value = false
             val pid = profileId.value
             val lastWatched = if (pid >= 0) progressDao.lastWatchedEpisodeId(pid, id) else null

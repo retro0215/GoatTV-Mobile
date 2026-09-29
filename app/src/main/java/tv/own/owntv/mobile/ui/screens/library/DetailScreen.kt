@@ -89,6 +89,7 @@ fun DetailScreen(
 
     val movie by vm.movie.collectAsStateWithLifecycle()
     val show by vm.show.collectAsStateWithLifecycle()
+    val meta by vm.meta.collectAsStateWithLifecycle()
     val episodes by vm.episodes.collectAsStateWithLifecycle()
     val seasons by vm.seasons.collectAsStateWithLifecycle()
     val season by vm.season.collectAsStateWithLifecycle()
@@ -129,39 +130,20 @@ fun DetailScreen(
 
     var menuFor by remember { mutableStateOf<EpisodeEntity?>(null) }
     var episodeOptions by remember { mutableStateOf(false) }
+    var isPlayingVod by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     LazyColumn(state = listState, modifier = modifier.fillMaxSize()) {
         item {
-            Box(
-                Modifier
+            VodTrailerHero(
+                trailerKey = meta?.trailerKey?.takeIf { it.isNotBlank() },
+                backdropUrl = backdrop,
+                posterUrl = poster,
+                isPlayingVod = isPlayingVod,
+                modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            ) {
-                AsyncImage(
-                    model = backdrop ?: poster,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                // The tile the user tapped, landed. It overlaps the backdrop rather than replacing
-                // it, which is what gives the travelling poster somewhere to arrive at — and it is
-                // the one picture on this screen that is certainly the same picture as on the grid.
-                AsyncImage(
-                    model = poster,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = MobileDimens.ScreenPaddingH, bottom = MobileDimens.GapSmall)
-                        .height(MobileDimens.DetailPosterHeight)
-                        .aspectRatio(2f / 3f)
-                        .sharedPoster(posterKey(tab.name, itemId))
-                        .clip(MobilePosterShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-                )
-            }
+                    .aspectRatio(16f / 9f),
+            )
             Column(
                 Modifier
                     .glassSurface(GlassSurface.PREVIEW, RectangleShape)
@@ -196,12 +178,18 @@ fun DetailScreen(
                         } else {
                             stringResource(R.string.content_play)
                         },
-                        onClick = { vm.play(resumeMs, onPlay) },
+                        onClick = {
+                            isPlayingVod = true
+                            vm.play(resumeMs, onPlay)
+                        },
                     )
                     if (resumeMs > 0) {
                         MobileButton(
                             text = stringResource(R.string.content_play),
-                            onClick = { vm.play(0L, onPlay) },
+                            onClick = {
+                                isPlayingVod = true
+                                vm.play(0L, onPlay)
+                            },
                             style = MobileButtonStyle.SECONDARY,
                         )
                     }
@@ -256,6 +244,7 @@ fun DetailScreen(
                         episode = episode,
                         positionMs = episodeProgress[episode.id]?.takeIf { it.durationMs > 1L }?.positionMs ?: 0L,
                         onPlay = {
+                            isPlayingVod = true
                             resumeGate(episodeProgress[episode.id]?.positionMs ?: 0L) {
                                 vm.playEpisode(episode.id, it, onPlay)
                             }
@@ -302,6 +291,7 @@ fun DetailScreen(
                     completed = episode.id in completedIds,
                     lastWatched = episode.id == lastWatchedId,
                     onClick = {
+                        isPlayingVod = true
                         resumeGate(watched?.positionMs ?: 0L) { vm.playEpisode(episode.id, it, onPlay) }
                     },
                     onLongClick = { menuFor = episode },
