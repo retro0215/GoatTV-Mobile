@@ -1,5 +1,6 @@
 package tv.own.owntv.mobile.ui.screens.library
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -235,7 +236,9 @@ class DetailViewModel(
                 val m = movieDao.getById(id)
                 _movie.value = m
                 if (m != null) {
-                    _meta.value = runCatching { metadata.resolveMovie(m) }.getOrNull()
+                    val resolved = runCatching { metadata.resolveMovie(m) }.getOrNull()
+                    _meta.value = resolved
+                    Log.d("VOD_TRAILER_DIAG", "MOVIE: id=$id, name=${m.name}, plot=${m.plot}, trailerKey=${resolved?.trailerKey}, tmdbId=${resolved?.tmdbId}, resolvedNull=${resolved == null}")
                 }
                 return@launch
             }
@@ -244,7 +247,9 @@ class DetailViewModel(
             _show.value = entity
             if (entity != null) {
                 seriesRepository.loadEpisodes(entity)
-                _meta.value = runCatching { metadata.resolveSeries(entity) }.getOrNull()
+                val resolved = runCatching { metadata.resolveSeries(entity) }.getOrNull()
+                _meta.value = resolved
+                Log.d("VOD_TRAILER_DIAG", "SERIES: id=$id, name=${entity.name}, plot=${entity.plot}, trailerKey=${resolved?.trailerKey}, tmdbId=${resolved?.tmdbId}, resolvedNull=${resolved == null}")
             }
             _loading.value = false
             val pid = profileId.value

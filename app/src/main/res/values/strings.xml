@@ -54,4 +54,7 @@
     <string name="guide_select_date">Select Date</string>
     <string name="guide_today">Today</string>
     <string name="guide_tomorrow">Tomorrow</string>
+
+    <string name="common_more">More</string>
+    <string name="common_less">Less</string>
 </resources>

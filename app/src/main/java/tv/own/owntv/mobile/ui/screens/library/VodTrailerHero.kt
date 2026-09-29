@@ -37,8 +37,8 @@ private const val HTML_MIME_TYPE = "text/html"
 private const val HTML_ENCODING = "utf-8"
 private const val BASE_URL = "https://www.youtube-nocookie.com"
 private const val BLANK_URL = "about:blank"
-private const val JS_MUTE = "document.getElementById('player').contentWindow.postMessage('{\"event\":\"command\",\"func\":\"mute\",\"args\":\"\"}', '*');"
-private const val JS_UNMUTE = "document.getElementById('player').contentWindow.postMessage('{\"event\":\"command\",\"func\":\"unMute\",\"args\":\"\"}', '*');"
+private const val JS_MUTE = "mutePlayer();"
+private const val JS_UNMUTE = "unmutePlayer();"
 
 /**
  * Shared VOD Trailer Hero component for Movie and Series Details.
@@ -61,29 +61,64 @@ fun VodTrailerHero(
     var hasError by remember { mutableStateOf(false) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
-    val showTrailer = !trailerKey.isNullOrBlank() && !hasError && !isPlayingVod
+    val cleanTrailerKey = remember(trailerKey) { extractYouTubeVideoId(trailerKey) }
+    val showTrailer = !cleanTrailerKey.isNullOrBlank() && !hasError && !isPlayingVod
 
     Box(
         modifier = modifier
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         if (showTrailer) {
-            val htmlContent = remember(trailerKey) {
+            val htmlContent = remember(cleanTrailerKey) {
                 """
                 <!DOCTYPE html>
                 <html>
                 <head>
-                <style>
-                  body, html { margin:0; padding:0; width:100%; height:100%; background-color:#000; overflow:hidden; }
-                  iframe { width:100%; height:100%; border:none; }
-                </style>
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                    body, html { margin:0; padding:0; width:100%; height:100%; background-color:#000; overflow:hidden; }
+                    #player { width:100%; height:100%; border:none; }
+                  </style>
                 </head>
                 <body>
-                  <iframe id="player"
-                    src="https://www.youtube-nocookie.com/embed/$trailerKey?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1"
-                    allow="autoplay; encrypted-media"
-                    allowfullscreen>
-                  </iframe>
+                  <div id="player"></div>
+                  <script>
+                    var tag = document.createElement('script');
+                    tag.src = "https://www.youtube.com/iframe_api";
+                    var firstScriptTag = document.getElementsByTagName('script')[0];
+                    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+                    var player;
+                    function onYouTubeIframeAPIReady() {
+                      player = new YT.Player('player', {
+                        height: '100%',
+                        width: '100%',
+                        videoId: '$cleanTrailerKey',
+                        playerVars: {
+                          'autoplay': 1,
+                          'mute': 1,
+                          'controls': 0,
+                          'playsinline': 1,
+                          'rel': 0,
+                          'modestbranding': 1,
+                          'enablejsapi': 1
+                        },
+                        events: {
+                          'onReady': onPlayerReady
+                        }
+                      });
+                    }
+                    function onPlayerReady(event) {
+                      event.target.mute();
+                      event.target.playVideo();
+                    }
+                    function mutePlayer() {
+                      if (player && player.mute) player.mute();
+                    }
+                    function unmutePlayer() {
+                      if (player && player.unMute) player.unMute();
+                    }
+                  </script>
                 </body>
                 </html>
                 """.trimIndent()
@@ -118,7 +153,7 @@ fun VodTrailerHero(
             )
 
             // Lifecycle cleanup for WebView
-            DisposableEffect(trailerKey) {
+            DisposableEffect(cleanTrailerKey) {
                 onDispose {
                     webViewRef?.run {
                         stopLoading()
@@ -162,7 +197,7 @@ fun VodTrailerHero(
 
                     IconButton(
                         onClick = {
-                            trailerKey?.let { context.playTrailer(it) }
+                            cleanTrailerKey?.let { context.playTrailer(it) }
                         },
                         modifier = Modifier
                             .size(32.dp)
@@ -187,4 +222,19 @@ fun VodTrailerHero(
             )
         }
     }
+}
+
+/** Extracts clean 11-character YouTube Video ID from raw ID or YouTube URL string */
+internal fun extractYouTubeVideoId(input: String?): String? {
+    if (input.isNullOrBlank()) return null
+    val trimmed = input.trim()
+    if (trimmed.length == 11 && trimmed.matches(Regex("[a-zA-Z0-9_-]{11}"))) {
+        return trimmed
+    }
+    val regex = Regex("""(?:youtube\.com/(?:watch\?.*v=|embed/|v/)|youtu\.be/)([a-zA-Z0-9_-]{11})""")
+    val match = regex.find(trimmed)
+    if (match != null && match.groupValues.size > 1) {
+        return match.groupValues[1]
+    }
+    return null
 }

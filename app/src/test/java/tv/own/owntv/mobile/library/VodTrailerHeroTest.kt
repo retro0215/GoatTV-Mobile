@@ -7,6 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import tv.own.owntv.core.database.entity.MetadataCacheEntity
+import tv.own.owntv.mobile.ui.screens.library.extractYouTubeVideoId
 
 class VodTrailerHeroTest {
 
@@ -113,5 +114,19 @@ class VodTrailerHeroTest {
         // Small inset poster overlay was removed from DetailScreen hero Box.
         val insetPosterPresent = false
         assertFalse("Small inset poster must be absent from hero", insetPosterPresent)
+    }
+
+    @Test
+    fun extractYouTubeVideoId_handlesRawKeysAndUrls() {
+        assertEquals("YoHD9XE21Z4", extractYouTubeVideoId("YoHD9XE21Z4"))
+        assertEquals("YoHD9XE21Z4",
+            extractYouTubeVideoId("https://www.youtube.com/watch?v=YoHD9XE21Z4")
+        )
+        assertEquals("YoHD9XE21Z4", extractYouTubeVideoId("https://youtu.be/YoHD9XE21Z4"))
+        assertEquals("YoHD9XE21Z4",
+            extractYouTubeVideoId("https://www.youtube.com/embed/YoHD9XE21Z4")
+        )
+        assertNull(extractYouTubeVideoId(null))
+        assertNull(extractYouTubeVideoId(""))
     }
 }

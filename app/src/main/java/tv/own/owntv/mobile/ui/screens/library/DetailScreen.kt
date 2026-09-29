@@ -7,6 +7,10 @@ import tv.own.owntv.mobile.ui.nav.sharedPoster
 import tv.own.owntv.mobile.ui.components.MobileIcons
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -226,11 +230,13 @@ fun DetailScreen(
                         }
                     }
                 }
-                if (!plot.isNullOrBlank()) {
-                    Text(
-                        text = plot,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                val descriptionText = movie?.plot?.takeIf { it.isNotBlank() }
+                    ?: show?.plot?.takeIf { it.isNotBlank() }
+                    ?: meta?.overview?.takeIf { it.isNotBlank() }
+
+                if (!descriptionText.isNullOrBlank()) {
+                    ExpandableDescription(
+                        text = descriptionText,
                         modifier = Modifier.padding(top = MobileDimens.GapMedium),
                     )
                 }
@@ -651,4 +657,40 @@ private fun EpisodeEntity.rowTitle(): String = if (name.isBlank()) {
 @Composable
 private fun Chip(label: String) {
     AssistChip(onClick = { }, label = { Text(label) })
+}
+
+@Composable
+private fun ExpandableDescription(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxCollapsedLines: Int = 4,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var isOverflowed by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else maxCollapsedLines,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { textLayoutResult ->
+                if (!expanded && textLayoutResult.hasVisualOverflow) {
+                    isOverflowed = true
+                }
+            },
+        )
+        if (isOverflowed || expanded) {
+            Text(
+                text = stringResource(if (expanded) R.string.common_less else R.string.common_more),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clickable { expanded = !expanded }
+                    .padding(top = 4.dp),
+            )
+        }
+    }
 }

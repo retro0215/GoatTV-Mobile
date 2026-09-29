@@ -36,14 +36,19 @@
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideScreen.kt	\0
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideScreen.kt	EEEdMMM
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	promotions
-1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	<!DOCTYPE html> <html> <head> <style> body, html { margin:0; padding:0; width:100%; height:100%; background-color:#000; overflow:hidden; } iframe { width:100%; height:100%; border:none; } </style> </head> <body> <iframe id="player" src="https://www.youtube-nocookie.com/embed/$trailerKey?enablejsapi=1&autoplay=1&mute=1&playsinline=1&controls=0&rel=0&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen> </iframe> </body> </html>
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/DetailViewModel.kt	MOVIE: id=$id, name=${m.name}, plot=${m.plot}, trailerKey=${resolved?.trailerKey}, tmdbId=${resolved?.tmdbId}, resolvedNull=${resolved == null}
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/DetailViewModel.kt	SERIES: id=$id, name=${entity.name}, plot=${entity.plot}, trailerKey=${resolved?.trailerKey}, tmdbId=${resolved?.tmdbId}, resolvedNull=${resolved == null}
+2	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/DetailViewModel.kt	VOD_TRAILER_DIAG
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	(?:youtube\\.com/(?:watch\\?.*v=|embed/|v/)|youtu\\.be/)([a-zA-Z0-9_-]{11})
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	<!DOCTYPE html> <html> <head> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <style> body, html { margin:0; padding:0; width:100%; height:100%; background-color:#000; overflow:hidden; } #player { width:100%; height:100%; border:none; } </style> </head> <body> <div id="player"></div> <script> var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag); var player; function onYouTubeIframeAPIReady() { player = new YT.Player('player', { height: '100%', width: '100%', videoId: '$cleanTrailerKey', playerVars: { 'autoplay': 1, 'mute': 1, 'controls': 0, 'playsinline': 1, 'rel': 0, 'modestbranding': 1, 'enablejsapi': 1 }, events: { 'onReady': onPlayerReady } }); } function onPlayerReady(event) { event.target.mute(); event.target.playVideo(); } function mutePlayer() { if (player && player.mute) player.mute(); } function unmutePlayer() { if (player && player.unMute) player.unMute(); } </script> </body> </html>
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	DEPRECATION
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	SetJavaScriptEnabled
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	[a-zA-Z0-9_-]{11}
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	about:blank
-1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	document.getElementById('player').contentWindow.postMessage('{"event":"command","func":"mute","args":""}', '*');
-1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	document.getElementById('player').contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	https://www.youtube-nocookie.com
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	mutePlayer();
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	text/html
+1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	unmutePlayer();
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/library/VodTrailerHero.kt	utf-8
 1	app/src/main/java/tv/own/owntv/mobile/ui/screens/live/LiveScreen.kt	\0
 2	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	\0
