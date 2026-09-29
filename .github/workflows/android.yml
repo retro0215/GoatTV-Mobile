@@ -1,43 +1,66 @@
 name: Android CI
 
-# Modelled on the TV app's workflow (ahXN00/OwnTV), which this repo is the second consumer of core
-# alongside. Three jobs:
+# The GoatTV-Mobile repository: ONE source tree, FOUR Mobile apps — GoatTV, AllAccess, 5Star Ultra and
+# Supreme TV — each its own applicationId, all signed with the one Mobile-only production key.
+#
+# Jobs:
 #   verify-pin — core pin bumps ONLY. Seconds, no build. See its own note.
-#   check      — unit tests + lint. Gates the build. Skipped on core pin bumps.
-#   build      — assembles the APKs, and publishes a GitHub Release on v* tags. Never runs for a PR,
-#                so PR branches only get the test/lint verdict, never an APK.
+#   check      — unit tests (all four brands) + lint. Gates everything after it.
+#   plan       — works out which brands to build and at what version, from the tag or the manual run.
+#   build      — one signed release APK per planned brand, each proven to be the right package, the
+#                right version and the right certificate before it is kept.
+#   release    — on a brand tag only: a DRAFT GitHub Release carrying that brand's one APK.
+#
+# Every brand has its own release track, so a tag names exactly one brand:
+#   goattv-mobile-v1.0.0       -> GoatTV-Mobile-v1.0.0.apk       (tv.goat.tv.mobile)
+#   allaccess-mobile-v1.0.0    -> AllAccess-Mobile-v1.0.0.apk    (tv.allaccess.app.mobile)
+#   5star-ultra-mobile-v1.0.0  -> 5Star-Ultra-Mobile-v1.0.0.apk  (tv.fivestar.ultra.mobile)
+#   supreme-tv-mobile-v1.0.0   -> Supreme-TV-Mobile-v1.0.0.apk   (tv.supreme.app.mobile)
+# The in-app updater (MobileUpdateManager) reads only its own prefix and only its own asset name, so
+# these names are a contract: change one here and the installed apps stop finding their updates.
+#
+# Releases are created as DRAFTS. GitHub never lists a draft to an anonymous client, so no installed
+# app can see it; it reaches customers only when a person publishes it after testing the APK.
+#
+# Secrets (Settings -> Secrets and variables -> Actions):
+#   MOBILE_KEYSTORE_BASE64   the PKCS12 keystore, base64-encoded (secret)
+#   MOBILE_KEYSTORE_PASSWORD its store password (secret)
+#   MOBILE_KEY_ALIAS         goattv-mobile (secret, so it is masked in logs)
+#   MOBILE_KEY_PASSWORD      the key password (secret)
+# Variable (not secret):
+#   MOBILE_CERT_SHA256       the certificate's SHA-256 fingerprint, lowercase hex without colons.
+#                            Every APK is checked against it, so a wrong keystore fails the run
+#                            instead of shipping an APK that cannot update anyone.
+# Optional secrets, as before: OWNTV_EDGE_MASTER / OWNTV_EDGE_KEY for the metadata service.
 on:
   push:
     branches: [ main ]
-    tags: [ "v*" ]
+    tags:
+      - "goattv-mobile-v*"
+      - "allaccess-mobile-v*"
+      - "5star-ultra-mobile-v*"
+      - "supreme-tv-mobile-v*"
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build for all four brands (X.Y.Z). Artifacts only — never a release."
+        required: true
+        default: "1.0.0"
 
 permissions:
-  contents: write   # required so tag builds can create a Release
+  contents: read
 
 # Core (tv.own.owntv:core, :player-core) and the mpv engine (tv.own.owntv:libmpv) resolve from OwnTV's
-# public Maven repository, https://ahxn00.github.io/OwnTV_Core/maven — no token, so fork pull requests
-# build exactly like the maintainer's. There is no owntv.corePath here: CI deliberately builds against
-# the PINNED artifact, which is what a release actually ships. Local builds use the composite.
+# public Maven repository, https://ahxn00.github.io/OwnTV_Core/maven — no token. There is no
+# owntv.corePath here: CI deliberately builds against the PINNED artifact, which is what ships.
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # A "Pin core x.y.z" pull request opened by core's bump-consumers workflow changes exactly two
-  # files and no application code. Running the unit tests, lint and the i18n checks on it re-verifies
-  # this repo's Kotlin, which is byte-identical to main — minutes of runner time that cannot report
-  # anything new. So those jobs step aside for these branches and this one runs instead.
-  #
-  # It also keeps the workflow run itself concluding "success". A run whose every job is skipped
-  # concludes as "skipped", and automerge-core-bump.yml requires success — skip everything and the
-  # pull request would sit open for ever.
-  #
-  # What is actually worth checking on such a pull request is that the numbers agree: seconds, no
-  # build, no Gradle, no Android SDK.
   verify-pin:
     if: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/core-') }}
     runs-on: ubuntu-latest
@@ -83,6 +106,7 @@ jobs:
 
           echo "Pin $PIN is core's newest release, the branch agrees, and locales.json matches."
 
+
   check:
     # Core pin bumps carry no application code — verify-pin above covers them instead.
     if: ${{ !(github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/core-')) }}
@@ -107,20 +131,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # One variant, not `test`/`lint` across every flavor: standard+debug is the variant the JVM
-      # tests are written against, and the ABI flavors differ only in the packaged native libs.
+      # Every brand: each resolves its own BrandConfig, release track and resources. The ABI flavors
+      # differ only in the packaged native libs, so standard is enough.
       - name: Unit tests
         run: |
           chmod +x ./gradlew
-          ./gradlew testStandardDebugUnitTest --stacktrace
+          ./gradlew testGoatStandardDebugUnitTest testAllaccessStandardDebugUnitTest \
+            testFivestarStandardDebugUnitTest testSupremeStandardDebugUnitTest --stacktrace
 
       # abortOnError = true in app/build.gradle.kts, so this fails the job on a lint error.
       - name: Lint
         if: always()   # report both verdicts in one run instead of one failure at a time
-        run: ./gradlew lintStandardDebug --stacktrace
+        run: ./gradlew lintGoatStandardDebug --stacktrace
 
       - name: Upload test and lint reports
-        if: always()   # the reports matter most when the step above failed
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: check-reports
@@ -130,16 +155,88 @@ jobs:
             app/build/reports/lint-results-*.txt
           if-no-files-found: warn
 
-  build:
+  plan:
     needs: check
-    # PRs get the check job only — no APK, no release.
-    if: github.event_name != 'pull_request'
+    # A brand tag, or a manual run. Pushes to main and pull requests stop at check: an APK is only
+    # ever built with a real version and the production key.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' }}
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      version: ${{ steps.plan.outputs.version }}
+      code: ${{ steps.plan.outputs.code }}
+      is_tag: ${{ steps.plan.outputs.is_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Brands and version
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # brand-id flavor package tag-prefix asset-base display-name
+          BRANDS='goat Goat tv.goat.tv.mobile goattv-mobile-v GoatTV-Mobile GoatTV_Mobile
+          allaccess Allaccess tv.allaccess.app.mobile allaccess-mobile-v AllAccess-Mobile AllAccess_Mobile
+          fivestar Fivestar tv.fivestar.ultra.mobile 5star-ultra-mobile-v 5Star-Ultra-Mobile 5Star_Ultra_Mobile
+          supreme Supreme tv.supreme.app.mobile supreme-tv-mobile-v Supreme-TV-Mobile Supreme_TV_Mobile'
+
+          # The updater inside every APK asks the repository named in gradle.properties. Building here
+          # with any other value would ship apps that look for their updates somewhere else.
+          CONFIGURED=$(sed -n 's/^goattv\.mobile\.releaseRepo=\(.*\)$/\1/p' gradle.properties | tr -d '[:space:]')
+          if [ "${CONFIGURED,,}" != "${REPOSITORY,,}" ]; then
+            echo "::error::gradle.properties has goattv.mobile.releaseRepo='$CONFIGURED' but this is $REPOSITORY."
+            exit 1
+          fi
+
+          SELECTED=""
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            VERSION="$INPUT_VERSION"
+            SELECTED="$BRANDS"
+            IS_TAG=false
+          else
+            IS_TAG=true
+            while read -r id flavor pkg prefix asset display; do
+              if [[ "$REF_NAME" == "$prefix"* ]]; then
+                VERSION="${REF_NAME#"$prefix"}"
+                SELECTED="$id $flavor $pkg $prefix $asset $display"
+              fi
+            done <<< "$BRANDS"
+            [ -n "$SELECTED" ] || { echo "::error::Tag $REF_NAME is on no Mobile brand's track."; exit 1; }
+          fi
+
+          if ! [[ "$VERSION" =~ ^([0-9]{1,4})\.([0-9]{1,2})\.([0-9]{1,2})$ ]]; then
+            echo "::error::Version '$VERSION' is not X.Y.Z (minor and patch at most 99)."
+            exit 1
+          fi
+          CODE=$(( 10#${BASH_REMATCH[1]} * 10000 + 10#${BASH_REMATCH[2]} * 100 + 10#${BASH_REMATCH[3]} ))
+
+          MATRIX=$(while read -r id flavor pkg prefix asset display; do
+            jq -cn --arg id "$id" --arg flavor "$flavor" --arg pkg "$pkg" --arg prefix "$prefix" \
+              --arg asset "$asset" --arg display "${display//_/ }" \
+              '{id:$id,flavor:$flavor,package:$pkg,prefix:$prefix,asset:$asset,display:$display}'
+          done <<< "$SELECTED" | jq -cs '{include: .}')
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "is_tag=$IS_TAG" >> "$GITHUB_OUTPUT"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION (code $CODE); brands: $(echo "$MATRIX" | jq -r '[.include[].id] | join(", ")')"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     env:
-      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
-      # Set at runtime via $GITHUB_ENV in the "Name the APK" step. Declared here (empty) so static
-      # linters don't flag the later ${{ env.APK_OUT }} references as "context access might be invalid".
-      APK_OUT: ""
+      VERSION_NAME: ${{ needs.plan.outputs.version }}
+      VERSION_CODE: ${{ needs.plan.outputs.code }}
+      APK_NAME: ${{ matrix.asset }}-v${{ needs.plan.outputs.version }}.apk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -153,179 +250,127 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          # 'tools' is obsolete and Google removed it from the SDK repository; the
-          # action still asks for it by default, which fails the whole setup step.
-          packages: 'platform-tools'
+          packages: 'platform-tools build-tools;36.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Compute version (from the git tag on releases)
-        id: ver
-        run: |
-          if [ "$IS_TAG" = "true" ]; then
-            NAME="${GITHUB_REF_NAME#v}"                 # tag v0.1.0 -> 0.1.0
-            IFS='.' read -r MA MI PA <<< "$NAME"
-            CODE=$(( ${MA:-0} * 10000 + ${MI:-0} * 100 + ${PA:-0} ))   # 0.1.0 -> 100
-            [ "$CODE" -gt 0 ] || CODE=1
-          else
-            # Dev (non-tag) builds mirror the local-build fallback in app/build.gradle.kts:
-            # pinned HIGH so a dev APK always installs over any published release
-            # (no INSTALL_FAILED_VERSION_DOWNGRADE).
-            NAME="99.99.99"
-            CODE=99999
-          fi
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "code=$CODE" >> "$GITHUB_OUTPUT"
-          echo "Version: $NAME (code $CODE)"
-
-      - name: Decode signing keystore (if configured)
+      # Missing secrets are a failure, never an unsigned or debug-signed fallback. The keystore only
+      # ever exists in this runner's temp directory and is deleted in the last step.
+      - name: Decode the Mobile signing keystore
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          MOBILE_KEYSTORE_BASE64: ${{ secrets.MOBILE_KEYSTORE_BASE64 }}
+          MOBILE_CERT_SHA256: ${{ vars.MOBILE_CERT_SHA256 }}
         run: |
-          # Runs on every push (not just tags) so dev builds are also signed RELEASE builds —
-          # required since R8 is on: only assembleRelease exercises shrinking and the keep rules,
-          # and a release-signed dev APK installs straight over a published release for testing.
-          # THE SAME KEYSTORE AS THE TV APP, deliberately: a certificate must be stable per
-          # applicationId, not unique per app, and the two applicationIds differ. See CLAUDE.md.
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
-            echo "Release signing configured."
-          else
-            echo "No KEYSTORE_BASE64 secret set — building a debug-signed APK."
-          fi
+          set -euo pipefail
+          [ -n "$MOBILE_KEYSTORE_BASE64" ] || { echo "::error::MOBILE_KEYSTORE_BASE64 is not set."; exit 1; }
+          [ -n "$MOBILE_CERT_SHA256" ] || { echo "::error::The MOBILE_CERT_SHA256 variable is not set."; exit 1; }
+          echo "$MOBILE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/goattv-mobile-release.jks"
+          echo "MOBILE_KEYSTORE_FILE=$RUNNER_TEMP/goattv-mobile-release.jks" >> "$GITHUB_ENV"
 
-      # Derives this release's edge key for the shared metadata/subtitle service, exactly as the TV
-      # app does — both apps talk to the same worker. Falls back to the static OWNTV_EDGE_KEY, then
-      # to "", where core uses its open base URL.
+      # Derives this release's edge key for the shared metadata/subtitle service. Falls back to the
+      # static OWNTV_EDGE_KEY, then to "", where core uses its open base URL.
       - name: Derive the release edge key
         env:
           OWNTV_EDGE_MASTER: ${{ secrets.OWNTV_EDGE_MASTER }}
           OWNTV_EDGE_KEY: ${{ secrets.OWNTV_EDGE_KEY }}
-          VERSION_NAME: ${{ steps.ver.outputs.name }}
         run: |
           if [ -n "$OWNTV_EDGE_MASTER" ]; then
-            # No trailing newline in the input; the server derives it the same way.
             KEY=$(printf '%s' "$VERSION_NAME" \
               | openssl dgst -sha256 -hmac "$OWNTV_EDGE_MASTER" -hex \
               | awk '{print $NF}')
             echo "::add-mask::$KEY"
             echo "OWNTV_EDGE_KEY=$KEY" >> "$GITHUB_ENV"
-            echo "Derived the edge key for $VERSION_NAME."
           elif [ -n "$OWNTV_EDGE_KEY" ]; then
             echo "::add-mask::$OWNTV_EDGE_KEY"
             echo "OWNTV_EDGE_KEY=$OWNTV_EDGE_KEY" >> "$GITHUB_ENV"
-            echo "No OWNTV_EDGE_MASTER — using the static edge key."
           else
             echo "No edge secret configured — the app will use the unprotected base URL."
           fi
 
-      - name: Build APK
+      - name: Build the signed release APK
         env:
-          VERSION_NAME: ${{ steps.ver.outputs.name }}
-          VERSION_CODE: ${{ steps.ver.outputs.code }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          # OWNTV_EDGE_KEY is exported into $GITHUB_ENV by the step above; app/build.gradle.kts reads
-          # it as the env var it always did.
+          MOBILE_KEYSTORE_PASSWORD: ${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
+          MOBILE_KEY_ALIAS: ${{ secrets.MOBILE_KEY_ALIAS }}
+          MOBILE_KEY_PASSWORD: ${{ secrets.MOBILE_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          if [ -n "$KEYSTORE_FILE" ]; then
-            echo "Building signed release APKs (both ABI flavors)"
-            ./gradlew assembleRelease --stacktrace
-            # Product flavors split the output by flavor subfolder:
-            #   standard/release  -> arm (arm64-v8a + armeabi-v7a) — real phones and tablets
-            #   x86_64/release    -> x86_64 — the emulator
-            ARM_SRC=$(ls app/build/outputs/apk/standard/release/*.apk | head -n1)
-            X86_SRC=$(ls app/build/outputs/apk/x86_64/release/*.apk | head -n1)
-            echo "Built arm:    $ARM_SRC"
-            echo "Built x86_64: $X86_SRC"
-            echo "ARM_SRC=$ARM_SRC" >> "$GITHUB_ENV"
-            echo "X86_SRC=$X86_SRC" >> "$GITHUB_ENV"
-          else
-            echo "Building debug APK"
-            ./gradlew assembleDebug
-            SRC=$(ls app/build/outputs/apk/standard/debug/*.apk | head -n1)
-            echo "Built: $SRC"
-            echo "ARM_SRC=$SRC" >> "$GITHUB_ENV"
-          fi
-
-      # Proves the APK carries the certificate it is supposed to. The trap this guards against is
-      # documented in CLAUDE.md: env vars beat Gradle properties, so a stale KEYSTORE_* in the
-      # environment signs with the wrong key and nothing else notices.
-      - name: Verify the signing certificate
-        if: env.KEYSTORE_FILE != ''
-        run: |
-          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
-          "$APKSIGNER" verify --print-certs "$ARM_SRC"
-
-      - name: Name the APK (OwnTV-Mobile-v<version>)
-        run: |
+          # verifyMobileRelease (app/build.gradle.kts) refuses to run without signing, a version and
+          # the release repository, so this cannot quietly produce an unsigned APK.
+          ./gradlew ":app:assemble${{ matrix.flavor }}StandardRelease" --stacktrace
+          SRC=$(ls app/build/outputs/apk/${{ matrix.id }}Standard/release/*.apk | head -n1)
           mkdir -p dist
-          if [ "$IS_TAG" = "true" ]; then
-            OUT="OwnTV-Mobile-v${{ steps.ver.outputs.name }}.apk"
-          else
-            OUT="OwnTV-Mobile-dev-${GITHUB_SHA::7}.apk"
-          fi
-          cp "$ARM_SRC" "dist/$OUT"
-          echo "APK_OUT=$OUT" >> "$GITHUB_ENV"
-          echo "Packaged dist/$OUT (arm: arm64-v8a + armeabi-v7a)"
-          # The x86_64 APK is for the emulator, so it is only published on a tag and only under its
-          # version name. There is no always-latest copy of either: this app has no in-app updater
-          # and no Downloader-style sideload audience, which is what that fixed URL exists for on TV.
-          if [ "$IS_TAG" = "true" ] && [ -n "$X86_SRC" ]; then
-            cp "$X86_SRC" "dist/OwnTV-Mobile-x86_64-v${{ steps.ver.outputs.name }}.apk"
-            echo "Packaged dist/OwnTV-Mobile-x86_64-v${{ steps.ver.outputs.name }}.apk"
-          fi
+          cp "$SRC" "dist/$APK_NAME"
 
-      - name: Upload APK artifact
+      # The three things that make an APK an update for the installed app, checked on the file itself.
+      - name: Verify package, version and certificate
+        env:
+          MOBILE_CERT_SHA256: ${{ vars.MOBILE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          APK="dist/$APK_NAME"
+          BADGING=$("$BT/aapt2" dump badging "$APK" | head -n1)
+          echo "$BADGING"
+          echo "$BADGING" | grep -q "name='${{ matrix.package }}' " \
+            || { echo "::error::$APK is not ${{ matrix.package }}."; exit 1; }
+          echo "$BADGING" | grep -q "versionCode='$VERSION_CODE' " \
+            || { echo "::error::$APK does not carry versionCode $VERSION_CODE."; exit 1; }
+          echo "$BADGING" | grep -q "versionName='$VERSION_NAME' " \
+            || { echo "::error::$APK does not carry versionName $VERSION_NAME."; exit 1; }
+
+          "$BT/apksigner" verify --print-certs "$APK" | tee certs.txt
+          ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' certs.txt | tr -d ':[:space:]' | tr 'A-F' 'a-f')
+          EXPECTED=$(echo "$MOBILE_CERT_SHA256" | tr -d ':[:space:]' | tr 'A-F' 'a-f')
+          SIGNERS=$(grep -o '^Signer #[0-9]*' certs.txt | sort -u | wc -l)
+          if [ "$SIGNERS" != "1" ] || [ -z "$ACTUAL" ] || [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::$APK is not signed with the Mobile production key alone (got $ACTUAL)."
+            exit 1
+          fi
+          ( cd dist && sha256sum "$APK_NAME" > "$APK_NAME.sha256" )
+          cat "dist/$APK_NAME.sha256"
+
+      - name: Upload the APK
         uses: actions/upload-artifact@v4
         with:
-          # Upload the whole dist/ so both the arm APK and the x86_64 APK are captured.
-          name: ${{ env.APK_OUT }}
+          name: ${{ env.APK_NAME }}
           path: dist/*
           if-no-files-found: error
 
-      - name: Extract release notes from CHANGELOG.md
-        if: env.IS_TAG == 'true'
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          # SHORT, bullet-only notes from CHANGELOG.md (the only changelog; detail lives in commits).
-          # Take "## <tag>" up to the next
-          # "## v" header; the header may carry a date or "unreleased" tail ("## v0.1.0 — 2026-09-01")
-          # or nothing at all.
-          if [ -f CHANGELOG.md ]; then
-            awk -v ver="$TAG" '
-              $0 ~ ("^## " ver "([ \t]|$)") { flag=1; next }
-              /^## v/ && flag { flag=0 }
-              flag { print }
-            ' CHANGELOG.md > dist/RELEASE_NOTES.md || true
-            # Trim leading/trailing blank lines.
-            sed -i -e '/./,$!d' dist/RELEASE_NOTES.md
-            awk 'NF{p=NR} {a[NR]=$0} END{for(i=1;i<=p;i++) print a[i]}' \
-              dist/RELEASE_NOTES.md > dist/RELEASE_NOTES.trimmed.md
-            mv dist/RELEASE_NOTES.trimmed.md dist/RELEASE_NOTES.md
-          fi
-          if [ ! -s dist/RELEASE_NOTES.md ]; then
-            echo "::warning::No CHANGELOG.md section for $TAG — publishing a placeholder body."
-            echo "See the commits for $TAG for details." \
-              > dist/RELEASE_NOTES.md
-          fi
-          echo "--- Release notes ---"
-          cat dist/RELEASE_NOTES.md
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/goattv-mobile-release.jks"
 
-      - name: Publish GitHub Release
-        if: env.IS_TAG == 'true'
-        uses: softprops/action-gh-release@v2
+  release:
+    needs: [ plan, build ]
+    if: ${{ needs.plan.outputs.is_tag == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # the only job that may create a (draft) release
+    steps:
+      - name: Download the APK
+        uses: actions/download-artifact@v4
         with:
-          name: OwnTV Mobile ${{ github.ref_name }}
-          files: |
-            dist/${{ env.APK_OUT }}
-            dist/OwnTV-Mobile-x86_64-v${{ steps.ver.outputs.name }}.apk
-          body_path: dist/RELEASE_NOTES.md
-          # Must stay false: it appends GitHub's auto commit/PR list under the body, burying the
-          # hand-written notes.
-          generate_release_notes: false
+          path: dist
+          merge-multiple: true
+
+      # A DRAFT, with exactly one APK: this tag's brand. Invisible to every installed app until a
+      # person publishes it — after installing this exact file over the previous version on a device.
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          MATRIX: ${{ needs.plan.outputs.matrix }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          DISPLAY_NAME=$(echo "$MATRIX" | jq -r '.include[0].display')
+          ASSET=$(echo "$MATRIX" | jq -r '.include[0].asset')-v$VERSION.apk
+          [ -f "dist/$ASSET" ] || { echo "::error::dist/$ASSET is missing."; exit 1; }
+          printf '%s %s\n\nSHA-256: %s\n' "$DISPLAY_NAME" "$VERSION" "$(cut -d' ' -f1 "dist/$ASSET.sha256")" > notes.md
+          gh release create "$TAG" "dist/$ASSET" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --verify-tag \
+            --title "$DISPLAY_NAME $VERSION" \
+            --notes-file notes.md
