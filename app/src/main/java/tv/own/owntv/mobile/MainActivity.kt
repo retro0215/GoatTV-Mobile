@@ -57,6 +57,7 @@ open class MainActivity : FragmentActivity() {
     private val cast: CastController by inject()
     private val localeStore: LocaleStore by inject()
     private val settings: SettingsRepository by inject()
+    private val autoRefresh: tv.own.owntv.mobile.sync.PlaylistAutoRefresher by inject()
 
     /**
      * The engine actually holding the stream — mpv for a film, a download or a recording, ExoPlayer
@@ -276,6 +277,9 @@ open class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
+        // A playlist whose auto-refresh interval has run out is synced now; the first start in a
+        // process is also when an "on startup" playlist refreshes. Throttled inside.
+        autoRefresh.onForeground()
         if (droppedVideoForBackground) {
             droppedVideoForBackground = false
             engine.exitAudioOnly()

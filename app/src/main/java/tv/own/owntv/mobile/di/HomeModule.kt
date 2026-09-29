@@ -1,5 +1,6 @@
 package tv.own.owntv.mobile.di
 
+import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import tv.own.owntv.core.home.HomeFeedReader
@@ -25,5 +26,7 @@ val homeModule = module {
             guide = get(),
         )
     }
+    // When a catalogue sync finishes, so the discovery rails are rebuilt while Home is showing.
+    single { tv.own.owntv.mobile.sync.CatalogSyncCompletions(androidContext()) }
     viewModelOf(::HomeViewModel)
 }

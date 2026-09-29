@@ -52,6 +52,9 @@
 1	technical	app/src/main/java/tv/own/owntv/mobile/playback/PlaybackService.kt	tv.own.owntv.mobile.SKIP_FORWARD
 1	protocol	app/src/main/java/tv/own/owntv/mobile/playback/PlaybackService.kt	tv.own.owntv.mobile.STOP
 1	protocol	app/src/main/java/tv/own/owntv/mobile/playback/PlaybackService.kt	tv.own.owntv.mobile.TOGGLE
+1	log	app/src/main/java/tv/own/owntv/mobile/sync/PlaylistAutoRefresher.kt	PlaylistAutoRefresher
+1	log	app/src/main/java/tv/own/owntv/mobile/sync/PlaylistAutoRefresher.kt	auto-refresh check failed: ${it.javaClass.simpleName}
+1	protocol	app/src/main/java/tv/own/owntv/mobile/sync/PlaylistAutoRefresher.kt	auto_refresh
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/components/AirDateLabel.kt	yMMMd
 1	empty	app/src/main/java/tv/own/owntv/mobile/ui/components/CategoryPickerSheet.kt	\0
 5	technical	app/src/main/java/tv/own/owntv/mobile/ui/components/ColorPickerSheet.kt	#
@@ -156,6 +159,7 @@
 1	log	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideViewModel.kt	guide_stats programmes=$programmes guideChannels=$guideChannels
 1	log	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideViewModel.kt	sources=${ids.size} cachedRows=${synchronized(rowCache) { rowCache.size }}
 1	log	app/src/main/java/tv/own/owntv/mobile/ui/screens/guide/GuideViewModel.kt	totalMs=${android.os.SystemClock.elapsedRealtime() - startedAt}
+1	assertion	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeDiscovery.kt	catalogue changed during the read
 2	compiler	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	$rank
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	Recently Added Movies
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/home/HomeScreen.kt	Recently Added Series

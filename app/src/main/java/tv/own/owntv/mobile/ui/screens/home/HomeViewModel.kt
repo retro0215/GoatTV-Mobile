@@ -2,6 +2,7 @@ package tv.own.owntv.mobile.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext
@@ -41,6 +42,7 @@ import tv.own.owntv.core.weather.WeatherInfo
 import tv.own.owntv.core.weather.WeatherRepository
 import tv.own.owntv.mobile.ui.screens.ContentActions
 import tv.own.owntv.mobile.ui.screens.library.VodTuner
+import tv.own.owntv.mobile.sync.CatalogSyncCompletions
 
 /**
  * Home, for the phone.
@@ -61,6 +63,7 @@ class HomeViewModel(
     private val seriesDao: SeriesDao,
     private val sourceDao: tv.own.owntv.core.database.dao.SourceDao,
     private val metadata: MetadataRepository,
+    private val syncCompletions: CatalogSyncCompletions,
     weatherRepository: WeatherRepository,
     connectivity: ConnectivityObserver,
 ) : ViewModel() {
@@ -118,18 +121,20 @@ class HomeViewModel(
                     }
                     val sourceIds = tv.own.owntv.core.repository.activeSourceIds(settings, sourceDao, pid)
                     if (sourceIds.isNotEmpty()) {
-                        val computedTopMovies = getDynamicTopMovies(pid, sourceIds)
-                        _topMovies.value = computedTopMovies
-
-                        val computedTopSeries = getDynamicTopSeries(pid, sourceIds)
-                        _topSeries.value = computedTopSeries
-
-                        _recentMovies.value = movieDao.searchList(String(), sourceIds, 1000)
-                            .sortedByDescending { it.addedAt ?: 0L }
-                            .take(20)
-                        _recentSeries.value = seriesDao.searchList(String(), sourceIds, 1000)
-                            .sortedByDescending { it.addedAt ?: 0L }
-                            .take(20)
+                        // Computed in full before anything is published, and a read that fails leaves
+                        // the rails as they were rather than half-updated or empty.
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                val now = System.currentTimeMillis()
+                                HomeDiscovery.movies(movieDao, pid, sourceIds, now) to
+                                    HomeDiscovery.series(seriesDao, pid, sourceIds, now)
+                            }
+                        }.onSuccess { (movies, series) ->
+                            _topMovies.value = movies.top
+                            _topSeries.value = series.top
+                            _recentMovies.value = movies.recent
+                            _recentSeries.value = series.recent
+                        }.onFailure { if (it is CancellationException) throw it }
                     } else {
                         _topMovies.value = emptyList()
                         _topSeries.value = emptyList()
@@ -148,62 +153,12 @@ class HomeViewModel(
         viewModelScope.launch {
             _promotions.value = promotionRepository.fetchEligiblePromotions()
         }
-    }
-
-    private suspend fun getDynamicTopMovies(profileId: Long, sourceIds: List<Long>): List<MovieEntity> {
-        if (sourceIds.isEmpty()) return emptyList()
-        val allSearch = movieDao.searchList(String(), sourceIds, 1000)
-        val watched = movieDao.recentlyWatchedSnapshot(profileId, sourceIds, 50)
-        val watchedIds = watched.map { it.id }.toSet()
-        val candidates = (allSearch + watched).distinctBy { it.id }
-
-        val now = System.currentTimeMillis()
-        return candidates.map { movie ->
-            val rating = movie.rating ?: 0.0
-            val ratingScore = if (rating > 0.0) rating * 1.2 else 6.0
-            
-            val addedAt = movie.addedAt ?: 0L
-            val ageDays = if (addedAt > 0L) (now - addedAt).coerceAtLeast(0L) / 86_400_000.0 else 30.0
-            val freshnessScore = maxOf(0.0, 4.0 * (1.0 - (ageDays / 30.0)))
-
-            val engagementScore = if (movie.id in watchedIds) 3.0 else 0.0
-
-            val totalScore = ratingScore + freshnessScore + engagementScore
-            Triple(movie, totalScore, addedAt)
+        // A catalogue sync that finished — automatic or asked for — changes what the discovery rails
+        // should hold, so they are rebuilt while Home is on screen, not only the next time it opens.
+        // Promotions come from their own service and are not fetched again for it.
+        viewModelScope.launch {
+            syncCompletions.succeeded().collect { refresh() }
         }
-        .sortedWith(compareByDescending<Triple<MovieEntity, Double, Long>> { it.second }
-            .thenByDescending { it.third }
-            .thenByDescending { it.first.id })
-        .take(10)
-        .map { it.first }
-    }
-
-    private suspend fun getDynamicTopSeries(profileId: Long, sourceIds: List<Long>): List<SeriesEntity> {
-        if (sourceIds.isEmpty()) return emptyList()
-        val allSearch = seriesDao.searchList(String(), sourceIds, 1000)
-        val watched = seriesDao.recentlyWatchedSnapshot(profileId, sourceIds, 50)
-        val watchedIds = watched.map { it.id }.toSet()
-        val candidates = (allSearch + watched).distinctBy { it.id }
-
-        val now = System.currentTimeMillis()
-        return candidates.map { series ->
-            val rating = series.rating ?: 0.0
-            val ratingScore = if (rating > 0.0) rating * 1.2 else 6.0
-            
-            val addedAt = series.addedAt ?: 0L
-            val ageDays = if (addedAt > 0L) (now - addedAt).coerceAtLeast(0L) / 86_400_000.0 else 30.0
-            val freshnessScore = maxOf(0.0, 4.0 * (1.0 - (ageDays / 30.0)))
-
-            val engagementScore = if (series.id in watchedIds) 3.0 else 0.0
-
-            val totalScore = ratingScore + freshnessScore + engagementScore
-            Triple(series, totalScore, addedAt)
-        }
-        .sortedWith(compareByDescending<Triple<SeriesEntity, Double, Long>> { it.second }
-            .thenByDescending { it.third }
-            .thenByDescending { it.first.id })
-        .take(10)
-        .map { it.first }
     }
 
     fun refresh() {

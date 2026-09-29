@@ -22,6 +22,15 @@ val shellModule = module {
     singleOf(::ContentActions)
     // Set by the shell on launch, taken by Live TV when it opens — neither owns the other.
     singleOf(::StartupLiveSelection)
+    // Once per process: it remembers whether the cold-start check has run.
+    single {
+        tv.own.owntv.mobile.sync.PlaylistAutoRefresher.create(
+            settings = get(),
+            profileDao = get(),
+            sourceDao = get(),
+            scheduler = get(),
+        )
+    }
     viewModelOf(::ShellViewModel)
     viewModel { ProfilesViewModel(get(), get(), get(), androidContext()) }
     viewModelOf(::ProfileGateSession)
