@@ -50,4 +50,16 @@ val liveModule = module {
     }
     viewModelOf(::LiveViewModel)
     viewModelOf(::ChannelDetailViewModel)
+    // Multiview: one grid per process, so it outlives its screen (Back, Home, a tile opened full
+    // screen) and only its X ends it. The engines are PlayerModule's pool, one per player slot.
+    single { tv.own.owntv.mobile.ui.screens.multiview.MultiviewPreferences(androidContext()) }
+    single {
+        tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession(
+            pool = get(),
+            registry = get(),
+            tuner = get(),
+            settings = get(),
+            sourceDao = get(),
+        )
+    }
 }

@@ -140,6 +140,11 @@ class OwnTVMobileApp : Application(), androidx.work.Configuration.Provider {
         super.onTrimMemory(level)
         runCatching {
             org.koin.core.context.GlobalContext.getOrNull()?.getOrNull<tv.own.owntv.player.PlaybackEngines>()?.onTrimMemory(level)
+            // Five decoders are the largest thing this app holds: at critical pressure the grid keeps
+            // the tile with the sound and lets the rest go, rather than the system killing everything.
+            org.koin.core.context.GlobalContext.getOrNull()
+                ?.getOrNull<tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession>()
+                ?.onMemoryPressure(level)
         }
     }
 }

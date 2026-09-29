@@ -93,7 +93,9 @@ fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         // share the generic video keyword set on purpose: each one's own title is the specific word a
         // user types, and the keywords are only there to catch the synonyms it does not contain.
         SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_MULTIVIEW, R.string.settings_multiview, R.string.settings_search_keywords_video),
-        SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_MULTIVIEW, R.string.settings_multiview_tiles_max, R.string.settings_search_keywords_video),
+        SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_MULTIVIEW, R.string.settings_multiview_audio_indicator, R.string.settings_search_keywords_video),
+        SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_MULTIVIEW, R.string.settings_multiview_padding, R.string.settings_search_keywords_video),
+        SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_MULTIVIEW, R.string.settings_multiview_corners, R.string.settings_search_keywords_video),
         SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_PLAYER, R.string.settings_live_tv_player, R.string.settings_search_keywords_video),
         SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_PLAYER, R.string.settings_movies_series_player, R.string.settings_search_keywords_video),
         SettingsRowEntry(SettingsGroup.PLAYBACK, SettingsLeaf.VP_PLAYER, R.string.settings_vod_engine_per_playlist, R.string.settings_search_keywords_video),

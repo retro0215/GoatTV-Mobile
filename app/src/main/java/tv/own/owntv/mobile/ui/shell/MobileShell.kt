@@ -206,7 +206,8 @@ fun MobileShell(
 
     // The full screen player is the one destination that owns the whole display: no bars, no rail,
     // and no mini player, because the thing the mini player would be showing is already on screen.
-    val fullscreen = currentRoute == PLAYER_ROUTE || currentRoute == SETUP_ROUTE
+    val fullscreen = currentRoute == PLAYER_ROUTE || currentRoute == SETUP_ROUTE ||
+        currentRoute?.startsWith(tv.own.owntv.mobile.ui.nav.MULTIVIEW_ROUTE) == true
     val tuner: LiveTuner = koinInject()
     val vodTuner: VodTuner = koinInject()
     val channel by tuner.channel.collectAsStateWithLifecycle()

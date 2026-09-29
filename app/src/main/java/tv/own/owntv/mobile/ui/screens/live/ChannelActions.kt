@@ -79,28 +79,21 @@ fun ChannelMenu(
     var sheetOpen by remember { mutableStateOf(true) }
     var dialog by remember { mutableStateOf<ChannelDialog?>(null) }
 
-    LaunchedEffect(sheetOpen, dialog) { if (!sheetOpen && dialog == null) onDismiss() }
+    // The fifth-tile warning outlives the sheet it came from, so it holds the menu open too.
+    var warnBeforeAdd by remember { mutableStateOf(false) }
+    LaunchedEffect(sheetOpen, dialog, warnBeforeAdd) { if (!sheetOpen && dialog == null && !warnBeforeAdd) onDismiss() }
 
-    // Multiview: offered only once it is switched on, and the confirmation says how many are kept.
-    val settings = org.koin.compose.koinInject<tv.own.owntv.core.settings.SettingsRepository>()
+    // Multiview, for every brand: the channel is kept for the grid — not played — and the grid tunes it
+    // when it opens. The confirmation says how full the grid is; the fifth tile asks first.
     val tuner = org.koin.compose.koinInject<LiveTuner>()
-    // Null until DataStore has answered — not `false`.
-    //
-    // A sheet is handed to the host as a lambda and drawn there, and the host keeps drawing the
-    // lambda it was first given. Built while this was still the placeholder `false`, the menu was
-    // built *without* the Multiview row and went on showing that version: the row never appeared,
-    // however many times it was opened. Waiting for the real answer costs a frame and is correct.
-    val multiviewSetting by settings.multiviewEnabled.collectAsStateWithLifecycle(null as Boolean?)
-    val multiviewEnabled = multiviewSetting == true
-    val multiviewTiles by settings.multiviewTiles.collectAsStateWithLifecycle(
-        tv.own.owntv.core.live.DEFAULT_MULTIVIEW_TILES,
-    )
+    val multiview = org.koin.compose.koinInject<tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession>()
+    val multiviewPrefs = org.koin.compose.koinInject<tv.own.owntv.mobile.ui.screens.multiview.MultiviewPreferences>()
     val context = androidx.compose.ui.platform.LocalContext.current
     // Configuration-aware, unlike context.getString: the toast below is formatted at click time with
     // a count that is not known at composition, so it cannot be a stringResource.
     val res = androidx.compose.ui.platform.LocalResources.current
 
-    if (sheetOpen && multiviewSetting != null) {
+    if (sheetOpen) {
         val canMove = vm.contextKeyOf(selected) != null
         val actions = buildList {
             add(
@@ -172,28 +165,21 @@ fun ChannelMenu(
                     onClick = { vm.playExternal(channel) },
                 ),
             )
-            if (multiviewEnabled) {
-                add(
-                    SheetAction(
-                        key = "add_to_multiview",
-                        label = stringResource(R.string.multiview_add_to),
-                        icon = MobileIcons.GridView,
-                        group = 1,
-                        onClick = {
-                            tuner.addToMultiview(channel, multiviewTiles)
-                            android.widget.Toast.makeText(
-                                context,
-                                res.getString(
-                                    R.string.multiview_added,
-                                    tuner.multiviewSelection.value.size,
-                                    multiviewTiles,
-                                ),
-                                android.widget.Toast.LENGTH_SHORT,
-                            ).show()
-                        },
-                    ),
-                )
-            }
+            add(
+                SheetAction(
+                    key = "add_to_multiview",
+                    label = stringResource(R.string.multiview_add_to),
+                    icon = MobileIcons.GridView,
+                    group = 1,
+                    onClick = {
+                        if (multiviewPrefs.shouldWarnBeforeAdding(multiview.model.value.size)) {
+                            warnBeforeAdd = true
+                        } else {
+                            addToMultiview(multiview, channel, context, res)
+                        }
+                    },
+                ),
+            )
             if (canMove) {
                 add(
                     SheetAction(
@@ -241,6 +227,30 @@ fun ChannelMenu(
             title = channel.name,
             actions = actions,
             onDismiss = { sheetOpen = false },
+        )
+    }
+
+    if (warnBeforeAdd) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { warnBeforeAdd = false },
+            title = { androidx.compose.material3.Text(stringResource(R.string.multiview_warning_title)) },
+            text = { androidx.compose.material3.Text(stringResource(R.string.multiview_warning_body)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    warnBeforeAdd = false
+                    addToMultiview(multiview, channel, context, res)
+                }) { androidx.compose.material3.Text(stringResource(R.string.multiview_warning_continue)) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    multiviewPrefs.suppressWarning()
+                    warnBeforeAdd = false
+                    addToMultiview(multiview, channel, context, res)
+                }) { androidx.compose.material3.Text(stringResource(R.string.multiview_warning_dont_show)) }
+                androidx.compose.material3.TextButton(onClick = { warnBeforeAdd = false }) {
+                    androidx.compose.material3.Text(stringResource(R.string.common_cancel))
+                }
+            },
         )
     }
 
@@ -526,3 +536,21 @@ private const val MIN_MINUTES = -12 * 60
 private const val MAX_MINUTES = 14 * 60
 private const val SEARCH_DEBOUNCE_MS = 250L
 private val SHIFT_LABEL_WIDTH = 96.dp
+
+/** Keep [channel] for the grid and say how full it now is, or that it is already full. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+private fun addToMultiview(
+    session: tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession,
+    channel: ChannelEntity,
+    context: android.content.Context,
+    res: android.content.res.Resources,
+) {
+    val max = tv.own.owntv.mobile.ui.screens.multiview.MultiviewModel.MAX_TILES
+    val added = session.add(tv.own.owntv.mobile.ui.screens.multiview.MultiviewContent.Live(channel))
+    val message = if (added) {
+        res.getString(R.string.multiview_added_count, session.model.value.size, max)
+    } else {
+        res.getString(R.string.multiview_full, max)
+    }
+    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+}

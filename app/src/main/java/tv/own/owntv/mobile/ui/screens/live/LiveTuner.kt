@@ -502,21 +502,6 @@ class LiveTuner(
     }
 
     /** Switch to another channel without leaving the screen — the Channels tab and the overlay. */
-    /**
-     * Make [channel] the current one **without playing it**, for a tap that is about to open
-     * Multiview instead of the player.
-     *
-     * [switchTo] starts a stream, and the grid opens by stopping it again a fraction of a second
-     * later — a race the stop lost: the engine was still loading when it was told to stop, carried
-     * on, and played underneath the grid. That was the phone's doubled sound, named in a log as an
-     * engine the pool had never built. Nothing should be started that is about to be stopped.
-     */
-    fun selectWithoutPlaying(channel: ChannelEntity) {
-        loadedId = channel.id
-        _channel.value = custom.value.itemNames[CustomizeKeys.channel(channel)]
-            ?.let { channel.copy(name = it) } ?: channel
-    }
-
     fun switchTo(channel: ChannelEntity) {
         if (channel.id == loadedId) return
         loadedId = channel.id
@@ -617,24 +602,6 @@ class LiveTuner(
         // A copy saved on this device (N4) is the exception: the other engine continues it at the same moment.
         if (_replaying.value || (timeshift.isRewound && !hasLocalCopy.value)) return
         live.toggleEngine()
-    }
-
-    // --- Multiview: channels kept from the browse screen ------------------------------------------
-    // The plan's second entry point: pick two to four channels from the Live list, then play one and
-    // the grid opens already filled. Held here, not in a view model, for the same reason everything
-    // else here is: the list that fills it and the player that empties it are different screens.
-    private val _multiviewSelection = MutableStateFlow<List<ChannelEntity>>(emptyList())
-    val multiviewSelection: StateFlow<List<ChannelEntity>> = _multiviewSelection
-
-    /** Keep [channel] for the grid, up to [limit] tiles. Adding one twice does nothing. */
-    fun addToMultiview(channel: ChannelEntity, limit: Int) {
-        val current = _multiviewSelection.value
-        if (current.any { it.id == channel.id } || current.size >= limit) return
-        _multiviewSelection.value = current + channel
-    }
-
-    fun clearMultiviewSelection() {
-        _multiviewSelection.value = emptyList()
     }
 
     /** The playlist a channel came from, so a caller can ask what it allows (the tile budget). */

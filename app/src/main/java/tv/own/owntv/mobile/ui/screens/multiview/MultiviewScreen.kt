@@ -1,49 +1,70 @@
 package tv.own.owntv.mobile.ui.screens.multiview
 
-import android.content.res.Configuration
 import android.graphics.SurfaceTexture
 import android.view.Surface
 import android.view.TextureView
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
@@ -51,243 +72,499 @@ import kotlinx.coroutines.flow.collectLatest
 import tv.own.owntv.core.database.entity.ChannelEntity
 import tv.own.owntv.core.live.displayText
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.ui.components.MobileBottomSheet
+import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.MobileIcons
+import tv.own.owntv.mobile.ui.components.MobileListRow
 import tv.own.owntv.player.LivePreviewEngine
 import tv.own.owntv.player.PlaybackFailure
 import tv.own.owntv.player.describe
 
 /**
- * Multiview for a finger: the same grid as the television, driven by taps.
+ * The phone's Multiview: up to five live channels, one of them heard — AerioTV's grid, touch edition.
  *
  * | Gesture | Does |
  * | --- | --- |
- * | tap a filled tile | give it the sound |
- * | tap an empty tile | open the channel picker |
- * | double-tap | that tile goes fullscreen |
- * | long-press | the tile menu |
- * | Back | leave, stopping every tile |
+ * | tap a tile | give it the sound (a lone tile: show or hide the controls) |
+ * | double-tap | that tile fills the grid; again to go back |
+ * | long-press, then drag | move the tile to where it is dropped |
+ * | long-press, release | the tile menu |
+ * | tap the background | show or hide the controls |
  *
- * Landscape is the real mode — that is where four 16:9 pictures fit — and portrait stacks them, which
- * is honest rather than clever: a 2×2 grid on a portrait phone is four postage stamps.
+ * Back steps out of move mode, then out of full-screen-in-grid, then leaves the screen with the grid
+ * kept for next time; only the X closes it. Tiles are drawn in player-slot order and placed by
+ * offset, so moving one on screen never recreates its picture or touches its stream.
  */
 @UnstableApi
 @Composable
 fun MultiviewScreen(
-    state: MobileMultiviewState,
-    onPickChannel: (tile: Int) -> Unit,
-    onFullscreen: (ChannelEntity) -> Unit,
-    /** Back. Takes no channel: leaving the grid now stops playback rather than promoting a tile. */
-    onExit: () -> Unit,
-    modifier: Modifier = Modifier,
+    session: MultiviewSession,
+    prefs: MultiviewPreferences,
+    /** Back with the grid kept. */
+    onLeave: () -> Unit,
+    /** The X: the grid is already closed when this runs. */
+    onClosed: () -> Unit,
+    /** A tile opened in the regular full-screen player. The grid is already put away. */
+    onOpenInPlayer: (ChannelEntity) -> Unit,
+    openPickerOnEntry: Boolean = false,
 ) {
-    var menuFor by remember { mutableStateOf<Int?>(null) }
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val model by session.model.collectAsStateWithLifecycle()
+    val problems by session.problems.collectAsStateWithLifecycle()
+    val layoutMode by prefs.layoutMode.collectAsStateWithLifecycle()
+    val style by prefs.audioFocusStyle.collectAsStateWithLifecycle()
+    val tilePadding by prefs.tilePadding.collectAsStateWithLifecycle()
+    val rounded by prefs.roundedCorners.collectAsStateWithLifecycle()
 
-    BackHandler(enabled = menuFor == null) { onExit() }
-
-    /*
-     * Leaving the app closes the grid, exactly as Back does.
-     *
-     * Four tiles are four decoders and four of the playlist's connections. Nothing stopped them when
-     * the app went off screen: pressing Home left all four streaming into a window nobody could see,
-     * draining the battery and holding connections that a recording — or the television in the next
-     * room — then could not have.
-     *
-     * `ON_STOP`, not `ON_PAUSE`: a notification shade or a permission dialog is not leaving. A
-     * rotation does not reach here at all, because the activity declares `configChanges` for it and
-     * is never recreated. Picture-in-Picture cannot reach here either — it needs a playing engine,
-     * and opening the grid stopped both of the single-stream ones.
-     */
+    // Playing only while this screen is in front: Home, a tile opened full screen and leaving with
+    // Back all stop every tile and give its connection back; coming back tunes the same grid again.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) onExit()
+            when (event) {
+                Lifecycle.Event.ON_START -> session.start()
+                Lifecycle.Event.ON_STOP -> session.suspend()
+                else -> Unit
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            session.suspend()
+        }
     }
-    // Held while the grid is up. The activity's keep-screen-on follows only the single-stream
-    // engines, which opening the grid stops — so the phone's own timeout turned the screen off, and
-    // the ON_STOP above then closed the grid in the middle of the match.
+    // Five pictures and nobody touching the screen: the phone's own timeout would otherwise end it.
     val view = LocalView.current
     DisposableEffect(view) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
 
-    Box(modifier.fillMaxSize().background(Color.Black)) {
-        // Landscape: two per row. Portrait: one per row, stacked.
-        val rows = if (landscape) state.tiles.indices.chunked(2) else state.tiles.indices.map { listOf(it) }
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(TileGap)) {
-            rows.forEach { row ->
-                Row(
-                    Modifier.fillMaxWidth().weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(TileGap),
-                ) {
-                    row.forEach { index ->
-                        Tile(
-                            state = state,
-                            index = index,
-                            onPickChannel = { onPickChannel(index) },
-                            onFullscreen = { state.tiles[index].channel?.let(onFullscreen) },
-                            onMenu = { menuFor = index },
-                            modifier = Modifier.weight(1f).fillMaxSize(),
-                        )
-                    }
-                    if (row.size == 1 && landscape) Box(Modifier.weight(1f))
-                }
-            }
+    var chromeVisible by remember { mutableStateOf(true) }
+    var lastInteraction by remember { mutableLongStateOf(0L) }
+    var relocatingSlot by remember { mutableStateOf<Int?>(null) }
+    var menuSlot by remember { mutableStateOf<Int?>(null) }
+    var pickerOpen by rememberSaveable { mutableStateOf(openPickerOnEntry) }
+    var swapTargetSlot by remember { mutableStateOf<Int?>(null) }
+    var pendingWarnedAdd by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    fun poke() {
+        chromeVisible = true
+        lastInteraction = System.nanoTime()
+    }
+
+    // AerioTV's 4 s auto-hide, standing down while a tile is being moved so its hint cannot vanish.
+    LaunchedEffect(chromeVisible, lastInteraction, relocatingSlot) {
+        if (chromeVisible && relocatingSlot == null) {
+            delay(CHROME_HIDE_MS)
+            chromeVisible = false
+        }
+    }
+    // The accent outline appears when the sound moves and fades after five seconds.
+    var focusFaded by remember { mutableStateOf(false) }
+    LaunchedEffect(model.audioSlot) {
+        focusFaded = false
+        delay(ACCENT_FADE_MS)
+        focusFaded = true
+    }
+    // A tile that left (removed, or taken by a profile change) cannot stay picked up or menu'd.
+    LaunchedEffect(model.tiles) {
+        if (relocatingSlot != null && model.tileIn(relocatingSlot!!) == null) relocatingSlot = null
+        if (menuSlot != null && model.tileIn(menuSlot!!) == null) menuSlot = null
+    }
+
+    BackHandler {
+        when {
+            relocatingSlot != null -> relocatingSlot = null
+            model.gridFullscreenSlot != null -> session.setGridFullscreen(null)
+            else -> onLeave()
         }
     }
 
-    menuFor?.let { tile ->
-        MultiviewTileSheet(
-            filled = state.tiles[tile].channel != null,
-            soundOnly = tile in state.soundOnly,
-            // Growing the grid is a deliberate act, which is what makes the Settings number a
-            // ceiling rather than a size: four allowed does not mean four every time.
-            onAddTile = if (state.canAddTile) { { menuFor = null; state.addTile() } } else null,
-            onChangeChannel = { menuFor = null; onPickChannel(tile) },
-            onFullscreen = { menuFor = null; state.tiles[tile].channel?.let(onFullscreen) },
-            onSound = { menuFor = null; state.giveSoundTo(tile) },
-            onSoundOnly = { menuFor = null; state.setSoundOnly(tile, tile !in state.soundOnly) },
-            onRemove = { menuFor = null; state.clear(tile) },
-            onDismiss = { menuFor = null },
+    // Every add goes through here: the fifth tile asks first, exactly once per two hours.
+    val gatedAdd: (() -> Unit) -> Unit = { commit ->
+        if (prefs.shouldWarnBeforeAdding(session.model.value.size)) pendingWarnedAdd = commit else commit()
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                if (chromeVisible) chromeVisible = false else poke()
+            },
+    ) {
+        if (model.isEmpty) {
+            EmptyState(onAdd = { pickerOpen = true })
+        } else {
+            TileGrid(
+                session = session,
+                model = model,
+                problems = problems,
+                layoutMode = layoutMode,
+                style = style,
+                padded = tilePadding,
+                rounded = rounded,
+                chromeVisible = chromeVisible,
+                focusFaded = focusFaded,
+                relocatingSlot = relocatingSlot,
+                onTap = { slot ->
+                    val moving = relocatingSlot
+                    when {
+                        moving != null && moving != slot -> {
+                            session.swap(model.displayIndexOf(moving), model.displayIndexOf(slot))
+                            relocatingSlot = null
+                        }
+                        moving == slot -> relocatingSlot = null
+                        model.size == 1 -> if (chromeVisible) chromeVisible = false else poke()
+                        else -> session.setAudio(slot)
+                    }
+                },
+                onDoubleTap = { slot ->
+                    if (model.size > 1) {
+                        session.setGridFullscreen(if (model.gridFullscreenSlot == slot) null else slot)
+                        relocatingSlot = null
+                    }
+                },
+                onMenu = { slot -> if (relocatingSlot == null) menuSlot = slot },
+                onDragStart = { slot -> if (model.size > 1) relocatingSlot = slot },
+                onDrop = { from, to ->
+                    session.move(from, to)
+                    relocatingSlot = null
+                },
+            )
+        }
+
+        Controls(
+            visible = chromeVisible || model.isEmpty,
+            count = model.size,
+            relocating = relocatingSlot != null,
+            gridFullscreen = model.gridFullscreenSlot != null,
+            canAdd = !model.isFull,
+            showLayoutButton = LocalConfiguration.current.screenWidthDp >= 600 && model.size > 1,
+            onClose = {
+                when {
+                    relocatingSlot != null -> relocatingSlot = null
+                    model.gridFullscreenSlot != null -> session.setGridFullscreen(null)
+                    else -> {
+                        session.close()
+                        onClosed()
+                    }
+                }
+            },
+            onAdd = { pickerOpen = true },
+            onLayout = { menuSlot = model.audioSlot ?: model.tiles.firstOrNull()?.slot },
+        )
+    }
+
+    menuSlot?.let { slot ->
+        val tile = model.tileIn(slot) ?: return@let
+        TileMenu(
+            tile = tile,
+            model = model,
+            layoutMode = layoutMode,
+            onDismiss = { menuSlot = null },
+            onAdd = { menuSlot = null; pickerOpen = true },
+            onSwap = { menuSlot = null; swapTargetSlot = slot; pickerOpen = true },
+            onAudio = { menuSlot = null; session.setAudio(slot) },
+            onGridFullscreen = { menuSlot = null; session.setGridFullscreen(slot); relocatingSlot = null },
+            onOpenInPlayer = {
+                menuSlot = null
+                (tile.content as? MultiviewContent.Live)?.channel?.let(onOpenInPlayer)
+            },
+            onSpotlight = {
+                menuSlot = null
+                session.setSpotlight(if (model.spotlightSlot == slot) null else slot)
+            },
+            onLayout = { mode ->
+                menuSlot = null
+                prefs.setLayoutMode(mode)
+                // Picking a shape ends Spotlight, or the hero would override the shape just chosen.
+                session.setSpotlight(null)
+            },
+            onMove = { menuSlot = null; relocatingSlot = slot; poke() },
+            onRemove = {
+                menuSlot = null
+                val last = model.size <= 1
+                session.remove(slot)
+                if (last) onLeave()
+            },
+        )
+    }
+
+    if (pickerOpen) {
+        AddToMultiviewSheet(
+            session = session,
+            swapTargetSlot = swapTargetSlot,
+            gatedAdd = gatedAdd,
+            onDismiss = {
+                pickerOpen = false
+                swapTargetSlot = null
+            },
+        )
+    }
+
+    pendingWarnedAdd?.let { commit ->
+        PerformanceWarning(
+            onContinue = { pendingWarnedAdd = null; commit() },
+            onDontShowAgain = { prefs.suppressWarning(); pendingWarnedAdd = null; commit() },
+            onCancel = { pendingWarnedAdd = null },
         )
     }
 }
 
 @UnstableApi
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Tile(
-    state: MobileMultiviewState,
-    index: Int,
-    onPickChannel: () -> Unit,
-    onFullscreen: () -> Unit,
-    onMenu: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun TileGrid(
+    session: MultiviewSession,
+    model: MultiviewModel,
+    problems: Map<Int, TileProblem>,
+    layoutMode: MultiviewLayoutMode,
+    style: AudioFocusStyle,
+    padded: Boolean,
+    rounded: Boolean,
+    chromeVisible: Boolean,
+    focusFaded: Boolean,
+    relocatingSlot: Int?,
+    onTap: (Int) -> Unit,
+    onDoubleTap: (Int) -> Unit,
+    onMenu: (Int) -> Unit,
+    onDragStart: (Int) -> Unit,
+    onDrop: (fromIndex: Int, toIndex: Int) -> Unit,
 ) {
-    val tile = state.tiles[index]
-    val audible = state.audible == index
-    Box(
-        modifier
-            .clip(TileShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .border(
-                width = if (audible) 2.dp else 1.dp,
-                color = if (audible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                shape = TileShape,
-            )
-            .pointerInput(index, tile.channel?.id) {
-                detectTapGestures(
-                    onTap = { if (tile.channel == null) onPickChannel() else state.giveSoundTo(index) },
-                    onDoubleTap = { if (tile.channel != null) onFullscreen() },
-                    onLongPress = { onMenu() },
-                )
-            },
-    ) {
-        val channel = tile.channel
-        val refusal = tile.refusal
-        when {
-            channel != null -> {
-                // A sound-only tile has no picture by design, so it says what it is rather than
-                // showing the black rectangle that would otherwise read as a fault.
-                if (index in state.soundOnly) {
-                    Text(
-                        text = stringResource(R.string.multiview_sound_only_note),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.Center).padding(20.dp),
-                    )
-                } else {
-                    val engine = state.pool.engineFor(index)
-                    val engineState by engine.state.collectAsStateWithLifecycle()
-                    val failure by engine.error.collectAsStateWithLifecycle()
-                    // A tile whose picture stops while the rest of the grid plays on. The provider
-                    // was already asked and said yes, so this is the phone running out of what it
-                    // has — said in seconds, rather than the eighty the engine's own reconnect
-                    // ladder spends going black before it admits anything.
-                    LaunchedEffect(index, channel.id) {
-                        engine.isPlaying.collectLatest { playing ->
-                            if (playing) return@collectLatest
-                            delay(StreamLostGraceMs)
-                            // An engine that has diagnosed itself is left alone: its own words are
-                            // more specific than anything guessed here.
-                            if (engine.error.value != null) return@collectLatest
-                            if (!engine.isPlaying.value) state.refuseDeviceLimit(index)
-                        }
-                    }
-                    // The picture failing does not stop the audio track, so a tile showing its
-                    // failure went on making a noise from a channel nobody could see.
-                    LaunchedEffect(engineState, index) {
-                        if (engineState == LivePreviewEngine.State.ERROR) state.silenceFailed(index)
-                    }
-                    if (engineState == LivePreviewEngine.State.ERROR) {
-                        // Never a blank rectangle: with no explanation it is indistinguishable from
-                        // the app being broken.
-                        Text(
-                            text = tileFailureText(failure),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.align(Alignment.Center).padding(20.dp),
-                        )
-                    } else {
-                        TileSurface(engine = engine, modifier = Modifier.fillMaxSize())
-                    }
+    var dragSlot by remember { mutableStateOf<Int?>(null) }
+    var dragPos by remember { mutableStateOf(Offset.Zero) }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val count = model.size
+        val spotlightIndex = model.spotlightSlot?.let(model::displayIndexOf)?.takeIf { it >= 0 }
+        val dpRects = MultiviewGridMath.resolvedRects(layoutMode, count, spotlightIndex, maxWidth.value, maxHeight.value)
+        val pxRects = MultiviewGridMath.resolvedRects(
+            layoutMode, count, spotlightIndex,
+            constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(),
+        )
+        val hoverIndex = dragSlot?.let { MultiviewGridMath.indexAt(dragPos, pxRects) }
+        val fullSlot = model.gridFullscreenSlot
+        val gap = if (padded) TILE_GAP else 0.dp
+
+        // Composed in slot order, never display order: a tile's picture belongs to its slot, and
+        // placing it by offset is what lets it move without its TextureView being rebuilt.
+        model.tiles.sortedBy { it.slot }.forEach { tile ->
+            val slot = tile.slot
+            val index = model.displayIndexOf(slot)
+            // No early return inside `key`: a return out of that inline composable lambda compiles to
+            // a method D8 cannot represent.
+            val r = dpRects.getOrNull(index)
+            if (r != null) key(slot) {
+                val isFull = fullSlot == slot
+                val x = when {
+                    isFull -> 0f
+                    fullSlot != null -> maxWidth.value + r.left // parked just off the right edge
+                    else -> r.left
                 }
-                TileCaption(name = channel.name, audible = audible)
-            }
-            // The phone, not the provider: it had already allowed this stream.
-            tile.deviceLimit -> Text(
-                text = stringResource(R.string.multiview_decoder_exhausted_mobile),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center).padding(20.dp),
-            )
-            refusal != null -> Text(
-                text = refusal.displayText(LocalContext.current.resources),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center).padding(20.dp),
-            )
-            else -> Column(
-                Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(
-                    imageVector = MobileIcons.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(26.dp),
-                )
-                Text(
-                    text = stringResource(R.string.multiview_add_channel),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val y = if (isFull) 0f else r.top
+                val w = if (isFull) maxWidth.value else r.width
+                val h = if (isFull) maxHeight.value else r.height
+                Box(
+                    Modifier
+                        .offset(x.dp, y.dp)
+                        .size(w.dp, h.dp)
+                        .zIndex(if (isFull) 1f else 0f)
+                        .padding(gap)
+                        .then(
+                            if (fullSlot == null) {
+                                Modifier.pointerInput(slot, index, count, pxRects.getOrNull(index)) {
+                                    // A long press that then drags is a move; released in place, the
+                                    // menu. Armed only past twice the touch slop — a finger resting on
+                                    // glass still moves a little.
+                                    val slop = viewConfiguration.touchSlop * 2f
+                                    var moved = false
+                                    var travelled = 0f
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { at ->
+                                            moved = false
+                                            travelled = 0f
+                                            dragSlot = slot
+                                            val pr = pxRects.getOrNull(index)
+                                            dragPos = Offset((pr?.left ?: 0f) + at.x, (pr?.top ?: 0f) + at.y)
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            travelled += amount.getDistance()
+                                            if (!moved && travelled > slop) {
+                                                moved = true
+                                                onDragStart(slot)
+                                            }
+                                            dragPos += amount
+                                        },
+                                        onDragEnd = {
+                                            if (!moved) {
+                                                onMenu(slot)
+                                            } else {
+                                                val to = MultiviewGridMath.indexAt(dragPos, pxRects)
+                                                val from = model.displayIndexOf(slot)
+                                                if (to != from) onDrop(from, to)
+                                            }
+                                            dragSlot = null
+                                        },
+                                        onDragCancel = { dragSlot = null },
+                                    )
+                                }
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
+                    Tile(
+                        session = session,
+                        tile = tile,
+                        problem = problems[slot],
+                        audible = model.audioSlot == slot,
+                        style = style,
+                        rounded = rounded && !isFull,
+                        chromeVisible = chromeVisible,
+                        focusFaded = focusFaded,
+                        relocating = relocatingSlot == slot || dragSlot == slot,
+                        dropTarget = hoverIndex == index && dragSlot != slot,
+                        onTap = { onTap(slot) },
+                        onDoubleTap = { onDoubleTap(slot) },
+                    )
+                }
             }
         }
     }
 }
 
+@UnstableApi
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Tile(
+    session: MultiviewSession,
+    tile: MultiviewTile,
+    problem: TileProblem?,
+    audible: Boolean,
+    style: AudioFocusStyle,
+    rounded: Boolean,
+    chromeVisible: Boolean,
+    focusFaded: Boolean,
+    relocating: Boolean,
+    dropTarget: Boolean,
+    onTap: () -> Unit,
+    onDoubleTap: () -> Unit,
+) {
+    val shape = RoundedCornerShape(if (rounded) 8.dp else 0.dp)
+    val borderColor by animateColorAsState(
+        targetValue = when {
+            dropTarget -> MaterialTheme.colorScheme.tertiary
+            relocating -> MaterialTheme.colorScheme.primary
+            audible && style == AudioFocusStyle.GrayOutline -> Color.White.copy(alpha = 0.5f)
+            audible && style == AudioFocusStyle.AccentFading && !focusFaded -> MaterialTheme.colorScheme.primary
+            else -> Color.White.copy(alpha = 0.08f)
+        },
+        animationSpec = tween(350),
+        label = "tileBorderColor",
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = when {
+            dropTarget -> 4.dp
+            relocating -> 3.dp
+            audible && (style == AudioFocusStyle.GrayOutline || (style == AudioFocusStyle.AccentFading && !focusFaded)) -> 2.dp
+            else -> 1.dp
+        },
+        animationSpec = tween(350),
+        label = "tileBorderWidth",
+    )
+    val channel = (tile.content as? MultiviewContent.Live)?.channel
+    Box(
+        Modifier
+            .fillMaxSize()
+            .clip(shape)
+            .background(Color.Black)
+            .border(borderWidth, borderColor, shape)
+            .combinedClickable(onClick = onTap, onDoubleClick = onDoubleTap),
+    ) {
+        if (problem != null) {
+            ProblemCard(
+                text = when (problem) {
+                    is TileProblem.Refused -> problem.grant.displayText(LocalContext.current.resources)
+                    TileProblem.DeviceLimit -> stringResource(R.string.multiview_decoder_exhausted_mobile)
+                },
+                onRetry = { session.retry(tile.slot) },
+            )
+        } else if (channel != null) {
+            EngineTile(session = session, slot = tile.slot, channelId = channel.id)
+        }
+        AnimatedVisibility(
+            visible = chromeVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopStart),
+        ) {
+            Text(
+                text = tile.content.title,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+        if (audible && style == AudioFocusStyle.CenterIcon && chromeVisible) {
+            Icon(
+                imageVector = MobileIcons.VolumeUp,
+                contentDescription = stringResource(R.string.multiview_audio_tile),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                modifier = Modifier.align(Alignment.Center).size(48.dp),
+            )
+        }
+    }
+}
+
 /**
- * One tile's picture, drawn through a [TextureView].
+ * The picture, or the engine's own account of why there is none.
  *
- * **Not a SurfaceView.** A SurfaceView is a hole punched in the window that the display hardware
- * fills directly — right for one full-screen picture, and the reason full screen still uses one —
- * but a device has only so many hardware video planes, and several have exactly one. A second
- * SurfaceView asking for a plane that does not exist gets no picture at all, while its audio, which
- * needs no plane, carries on. That is what the television did before this change: one tile with
- * sound and no image, and a decoder log full of dropped frames and no error. A TextureView is an
- * ordinary GPU-composited view, so any number of them can draw at once.
+ * A tile whose picture stops while the rest play on, with no error from the engine, has hit the
+ * phone's limit — decoders, bandwidth or video planes — and says so after [STREAM_LOST_GRACE_MS]
+ * rather than the eighty seconds the engine's reconnect ladder takes to give up.
+ */
+@UnstableApi
+@Composable
+private fun BoxScope.EngineTile(session: MultiviewSession, slot: Int, channelId: Long) {
+    val engine = session.engineFor(slot)
+    val engineState by engine.state.collectAsStateWithLifecycle()
+    val failure by engine.error.collectAsStateWithLifecycle()
+    val running by session.running.collectAsStateWithLifecycle()
+    LaunchedEffect(slot, channelId, running) {
+        if (!running) return@LaunchedEffect
+        engine.isPlaying.collectLatest { playing ->
+            if (playing) return@collectLatest
+            delay(STREAM_LOST_GRACE_MS)
+            if (engine.error.value != null) return@collectLatest
+            if (!engine.isPlaying.value && session.running.value) session.markDeviceLimit(slot)
+        }
+    }
+    LaunchedEffect(engineState, slot) {
+        if (engineState == LivePreviewEngine.State.ERROR) session.onTileFailed(slot)
+    }
+    if (engineState == LivePreviewEngine.State.ERROR) {
+        ProblemCard(text = tileFailureText(failure), onRetry = { session.retry(slot) })
+    } else {
+        TileSurface(engine = engine, modifier = Modifier.fillMaxSize())
+    }
+}
+
+/**
+ * One tile's picture, through a [TextureView].
  *
- * Keyed on the engine's surface generation for the same reason the television's is: releasing a 4K
- * decoder bumps that counter, and some hardware only ever accepts one 4K codec per Surface.
+ * Not a SurfaceView: each SurfaceView asks the display hardware for a video plane of its own, a
+ * phone has very few, and one that gets none shows nothing while its sound plays on. A TextureView
+ * is drawn by the GPU like any other view, so five can play at once. Full screen keeps its
+ * SurfaceView. Keyed on the engine's surface generation, which a released 4K decoder bumps.
  */
 @UnstableApi
 @Composable
@@ -299,8 +576,7 @@ private fun TileSurface(engine: LivePreviewEngine, modifier: Modifier = Modifier
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     TextureView(ctx).apply {
-                        // The Surface is ours to make and ours to release: a TextureView hands out a
-                        // SurfaceTexture, not a Surface, and leaking one keeps a decoder alive.
+                        // The Surface is ours to make and release: leaking one keeps a decoder alive.
                         var surface: Surface? = null
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
@@ -325,61 +601,227 @@ private fun TileSurface(engine: LivePreviewEngine, modifier: Modifier = Modifier
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.TileCaption(name: String, audible: Boolean) {
-    Row(
+private fun BoxScope.ProblemCard(text: String, onRetry: () -> Unit) {
+    Column(
         Modifier
-            .align(Alignment.BottomStart)
-            .padding(8.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.55f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .matchParentSize()
+            .background(Color.Black.copy(alpha = 0.82f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (audible) {
-            Icon(
-                imageVector = MobileIcons.VolumeUp,
-                contentDescription = stringResource(R.string.multiview_audio_tile),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(14.dp),
-            )
-        }
         Text(
-            text = name,
-            style = MaterialTheme.typography.labelLarge,
+            text = stringResource(R.string.multiview_playback_problem),
+            style = MaterialTheme.typography.titleSmall,
             color = Color.White,
-            maxLines = 1,
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.common_retry)) }
+    }
+}
+
+@Composable
+private fun BoxScope.EmptyState(onAdd: () -> Unit) {
+    Column(
+        Modifier.align(Alignment.Center).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            imageVector = MobileIcons.GridView,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.size(48.dp),
+        )
+        Text(
+            text = stringResource(R.string.multiview_empty),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+        )
+        MobileButton(text = stringResource(R.string.multiview_add_channel), onClick = onAdd)
+    }
+}
+
+@Composable
+private fun BoxScope.Controls(
+    visible: Boolean,
+    count: Int,
+    relocating: Boolean,
+    gridFullscreen: Boolean,
+    canAdd: Boolean,
+    showLayoutButton: Boolean,
+    onClose: () -> Unit,
+    onAdd: () -> Unit,
+    onLayout: () -> Unit,
+) {
+    if (!visible) return
+    RoundButton(
+        icon = MobileIcons.Close,
+        description = stringResource(R.string.multiview_close),
+        onClick = onClose,
+        modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 14.dp, top = 14.dp),
+    )
+    val highlighted = relocating || gridFullscreen
+    Text(
+        text = when {
+            relocating -> stringResource(R.string.multiview_tap_to_swap)
+            gridFullscreen -> stringResource(R.string.multiview_double_tap_exit)
+            else -> stringResource(R.string.multiview_count, count, MultiviewModel.MAX_TILES)
+        },
+        style = MaterialTheme.typography.labelMedium,
+        color = if (highlighted) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.85f),
+        fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(end = 18.dp, top = 18.dp),
+    )
+    if (!relocating && !gridFullscreen && canAdd && count > 0) {
+        RoundButton(
+            icon = MobileIcons.Add,
+            description = stringResource(R.string.multiview_add_channel),
+            onClick = onAdd,
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(end = 14.dp, top = 44.dp),
+        )
+    }
+    if (showLayoutButton && !relocating && !gridFullscreen) {
+        RoundButton(
+            icon = MobileIcons.GridView,
+            description = stringResource(R.string.multiview_grid_layout),
+            onClick = onLayout,
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(end = 14.dp, top = 94.dp),
         )
     }
 }
 
+@Composable
+private fun RoundButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier) {
+    Box(
+        modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(imageVector = icon, contentDescription = description, tint = Color.White)
+        }
+    }
+}
+
 /**
- * What a failed tile says: the engine's own diagnosis, and a plain fallback when it has none.
- *
- * It never invents a number of provider connections. The television had a version that did, reading
- * a stopped tile as proof of the provider's limit, and it was wrong every time — including telling
- * the owner his provider allowed three streams while three of them played beside the message.
+ * Long-press on a tile: AerioTV's tile menu, less what a live-only phone grid has no use for
+ * (subtitle and audio tracks, the scrubber). Actions that need a second tile only appear with one.
  */
+@Composable
+private fun TileMenu(
+    tile: MultiviewTile,
+    model: MultiviewModel,
+    layoutMode: MultiviewLayoutMode,
+    onDismiss: () -> Unit,
+    onAdd: () -> Unit,
+    onSwap: () -> Unit,
+    onAudio: () -> Unit,
+    onGridFullscreen: () -> Unit,
+    onOpenInPlayer: () -> Unit,
+    onSpotlight: () -> Unit,
+    onLayout: (MultiviewLayoutMode) -> Unit,
+    onMove: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val several = model.size > 1
+    MobileBottomSheet(onDismissRequest = onDismiss, title = tile.content.title) {
+        if (!model.isFull) MenuRow(stringResource(R.string.multiview_add_channel), MobileIcons.Add, onAdd)
+        MenuRow(stringResource(R.string.multiview_tile_change_channel), MobileIcons.SwapHoriz, onSwap)
+        if (model.audioSlot != tile.slot) MenuRow(stringResource(R.string.multiview_make_audio), MobileIcons.VolumeUp, onAudio)
+        if (several) MenuRow(stringResource(R.string.multiview_fullscreen_in_grid), MobileIcons.OpenInFull, onGridFullscreen)
+        MenuRow(stringResource(R.string.multiview_tile_fullscreen), MobileIcons.OpenInNew, onOpenInPlayer)
+        if (several) {
+            MenuRow(
+                stringResource(
+                    if (model.spotlightSlot == tile.slot) R.string.multiview_spotlight_remove else R.string.multiview_spotlight,
+                ),
+                MobileIcons.AspectRatio,
+                onSpotlight,
+            )
+        }
+        MultiviewLayoutMode.available(model.size).forEach { mode ->
+            MenuRow(
+                label = stringResource(
+                    when (mode) {
+                        MultiviewLayoutMode.Auto -> R.string.multiview_layout_default
+                        MultiviewLayoutMode.EvenGrid -> R.string.multiview_layout_even
+                        MultiviewLayoutMode.Stacked -> R.string.multiview_layout_stacked
+                    },
+                ),
+                icon = if (mode == layoutMode && model.spotlightSlot == null) MobileIcons.Check else MobileIcons.GridView,
+                onClick = { onLayout(mode) },
+            )
+        }
+        if (several) MenuRow(stringResource(R.string.multiview_move_tile), MobileIcons.SwapVert, onMove)
+        MenuRow(stringResource(R.string.multiview_tile_remove), MobileIcons.Close, onRemove)
+    }
+}
+
+@Composable
+private fun MenuRow(label: String, icon: ImageVector, onClick: () -> Unit) {
+    MobileListRow(
+        title = label,
+        leading = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        },
+        onClick = onClick,
+    )
+}
+
+@Composable
+private fun PerformanceWarning(onContinue: () -> Unit, onDontShowAgain: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.multiview_warning_title)) },
+        text = { Text(stringResource(R.string.multiview_warning_body)) },
+        confirmButton = {
+            TextButton(onClick = onContinue) {
+                Text(stringResource(R.string.multiview_warning_continue), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDontShowAgain) { Text(stringResource(R.string.multiview_warning_dont_show)) }
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.common_cancel)) }
+        },
+    )
+}
+
+/** The engine's own diagnosis, or a plain fallback. Never a guessed number of provider connections. */
 @Composable
 private fun tileFailureText(failure: PlaybackFailure?): String = when {
     failure == PlaybackFailure.DecoderExhausted -> stringResource(R.string.multiview_decoder_exhausted_mobile)
     failure != null -> {
-        LocalConfiguration.current // so a language change recomposes this, as stringResource would
+        LocalConfiguration.current // a language change recomposes this, as stringResource would
         val resources = LocalContext.current.resources
         failure.describe { id, args -> resources.getString(id, *args.toTypedArray()) }
     }
     else -> stringResource(R.string.player_error_channel)
 }
 
-/**
- * How long a tile may be stopped before the grid calls it lost.
- *
- * Comfortably longer than the slowest tile open measured on real hardware, so a channel that is
- * merely slow to start is never mistaken for one the device could not carry — and far shorter than
- * the engine's eight-attempt ladder, which takes over eighty seconds to conclude anything.
- */
-private const val StreamLostGraceMs = 12_000L
+/** AerioTV's controls timeout. */
+private const val CHROME_HIDE_MS = 4_000L
 
-private val TileGap = 4.dp
-private val TileShape = RoundedCornerShape(10.dp)
+/** AerioTV's accent-outline fade. */
+private const val ACCENT_FADE_MS = 5_000L
+
+/**
+ * How long a tile may sit stopped before the grid calls it lost: longer than the slowest real open
+ * measured, far shorter than the engine's eight-attempt ladder.
+ */
+private const val STREAM_LOST_GRACE_MS = 12_000L
+
+/** AerioTV's tile padding. */
+private val TILE_GAP = 4.dp

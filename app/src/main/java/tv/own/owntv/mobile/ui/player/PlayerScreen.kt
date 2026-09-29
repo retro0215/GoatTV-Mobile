@@ -102,11 +102,14 @@ private const val NOTCHES = 20
 @Composable
 fun PlayerScreen(
     onExit: () -> Unit,
+    /** The grid takes over; the channel on screen has already been made its first tile. */
+    onOpenMultiview: () -> Unit,
     modifier: Modifier = Modifier,
     tuner: LiveTuner = koinInject(),
     vodTuner: VodTuner = koinInject(),
     pip: PipController = koinInject(),
     settings: SettingsRepository = koinInject(),
+    multiviewSession: tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession = koinInject(),
     actions: ContentActions = koinInject(),
     subtitles: SubtitleController = koinInject(),
     cast: CastController = koinInject(),
@@ -163,67 +166,11 @@ fun PlayerScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Multiview. Off by default and opt-in, so the button is not even drawn until the user has
-    // switched it on; the grid owns its own engines and stops this one while it is up.
-    val multiviewEnabled by settings.multiviewEnabled.collectAsStateWithLifecycle(false)
-    val multiviewTiles by settings.multiviewTiles.collectAsStateWithLifecycle(
-        tv.own.owntv.core.live.DEFAULT_MULTIVIEW_TILES,
-    )
-    val enginePool = koinInject<tv.own.owntv.player.LiveEnginePool>()
-    val streamRegistry = koinInject<tv.own.owntv.core.live.OpenStreamRegistry>()
-    var multiview by remember {
-        mutableStateOf<tv.own.owntv.mobile.ui.screens.multiview.MobileMultiviewState?>(null)
-    }
-    var multiviewPickFor by remember { mutableStateOf<Int?>(null) }
-    // Which category the Multiview picker is inside, and what it holds. Null = showing categories.
-    var multiviewCategory by remember { mutableStateOf<Long?>(null) }
-    var multiviewChannels by remember { mutableStateOf<List<ChannelEntity>>(emptyList()) }
-    var multiviewCategories by remember { mutableStateOf<List<Pair<Long, String>>>(emptyList()) }
     // The same two steps for the player's own channel button. Null = showing categories.
     var playerCategory by remember { mutableStateOf<Long?>(null) }
     var playerChannels by remember { mutableStateOf<List<ChannelEntity>>(emptyList()) }
     var playerCategories by remember { mutableStateOf<List<Pair<Long, String>>>(emptyList()) }
     var playerCategoriesLoaded by remember { mutableStateOf(false) }
-    // Loaded when the picker opens, not when the player does: it is a database read nobody watching
-    // a channel has asked for.
-    LaunchedEffect(multiviewPickFor) {
-        if (multiviewPickFor != null && multiviewCategories.isEmpty()) {
-            multiviewCategories = tuner.liveCategoriesForPicker()
-        }
-        if (multiviewPickFor == null) multiviewCategory = null
-    }
-    // Channels kept from the Live list (B5's second entry point). Playing any channel is what says
-    // "now": the grid opens with them already in it, and the selection is spent.
-    val multiviewSelection by tuner.multiviewSelection.collectAsStateWithLifecycle()
-    LaunchedEffect(channel?.id, multiviewSelection.size, multiviewEnabled) {
-        val current = channel
-        if (multiviewEnabled && multiview == null && multiviewSelection.isNotEmpty() && current != null) {
-            val kept = multiviewSelection
-            tuner.clearMultiviewSelection()
-            // BOTH engines, exactly as the HUD button does. This is the *other* way into the grid —
-            // the one the owner actually uses — and it stopped only mpv, so a channel playing on the
-            // ExoPlayer engine carried on underneath: a second sound, and a connection spent on a
-            // stream nobody could see.
-            player.stop()
-            tuner.exoEngine.stop()
-            val grid = tv.own.owntv.mobile.ui.screens.multiview.MobileMultiviewState(
-                pool = enginePool,
-                registry = streamRegistry,
-                tuner = tuner,
-                scope = scope,
-                maxTiles = multiviewTiles,
-            )
-            var tile = 0
-            grid.fill(tile++, current)
-            // Channels kept by name size the grid themselves, up to the ceiling: the user already
-            // said how many they wanted.
-            kept.filter { it.id != current.id }.forEach { keptChannel ->
-                if (tile >= grid.tiles.size) grid.addTile()
-                if (tile < grid.tiles.size) grid.fill(tile++, keptChannel)
-            }
-            multiview = grid
-        }
-    }
 
     // What Favourite would act on: the channel, the film, or — for an episode — the show it is from,
     // because an episode is never favourited on its own.
@@ -652,31 +599,14 @@ fun PlayerScreen(
             // Only a live channel whose provider keeps an archive has anything to go back into.
             onCatchup = if (catchup != null) ({ sheet = PlayerSheet.CATCHUP }) else null,
             onPreviousChannel = if (isLive && previousChannel != null) tuner::tunePrevious else null,
-            // Live channels only, and only once Multiview is switched on. The channel on screen
-            // becomes tile 1 and the grid takes over from this player.
-            onMultiview = if (multiviewEnabled && isLive && channel != null) {
+            // Live channels. The channel on screen becomes tile 1 with the sound — any tiles already in
+            // the grid stay behind it — and the grid opens with Add to Multiview up, so a second
+            // channel is one tap away. The grid stops this player itself when it opens.
+            onMultiview = channel?.takeIf { isLive }?.let { current ->
                 {
-                    // The fullscreen stream goes first: tile 1 opens its own engine, and a playlist
-                    // that allows two streams would otherwise be asked for three.
-                    val current = channel
-                    // BOTH engines. Live plays on the ExoPlayer engine (L2) whenever that is the
-                    // chosen engine, and stopping only mpv left that stream running behind the grid —
-                    // audible, and holding one of the provider's connections, while a tile played the
-                    // same or another channel over the top of it. Two sounds at once.
-                    player.stop()
-                    tuner.exoEngine.stop()
-                    val grid = tv.own.owntv.mobile.ui.screens.multiview.MobileMultiviewState(
-                        pool = enginePool,
-                        registry = streamRegistry,
-                        tuner = tuner,
-                        scope = scope,
-                        maxTiles = multiviewTiles,
-                    )
-                    current?.let { grid.fill(0, it) }
-                    multiview = grid
+                    multiviewSession.seedFront(tv.own.owntv.mobile.ui.screens.multiview.MultiviewContent.Live(current))
+                    onOpenMultiview()
                 }
-            } else {
-                null
             },
             onReport = {
                 val meta = activeEngine.currentMeta.value
@@ -736,82 +666,11 @@ fun PlayerScreen(
         GestureHud(hud.takeIf { !inPip })
     }
 
-    // Multiview draws over the whole player, including the picture it grew out of, and owns its own
-    // engines. The stream behind it was stopped when the grid opened.
-    multiview?.let { grid ->
-        tv.own.owntv.mobile.ui.screens.multiview.MultiviewScreen(
-            state = grid,
-            onPickChannel = { tile -> multiviewPickFor = tile },
-            onFullscreen = { picked ->
-                grid.releaseAll()
-                multiview = null
-                multiviewPickFor = null
-                tuner.switchTo(picked)
-            },
-            onExit = {
-                grid.releaseAll()
-                multiview = null
-                multiviewPickFor = null
-                // Leaving the grid leaves *playback*, by the owner's decision (2026-09-13).
-                //
-                // It used to promote whichever tile had the sound to the single stream. In use that
-                // is wrong twice over: a grid is put away by someone who has finished watching, and
-                // being handed one of the tiles means a stream is still running and still costing a
-                // connection when the user believes they closed everything.
-                stopAndExit()
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
-        // Filling a tile: categories first, then that category's channels. The player's own picker
-        // starts at channels because it already has one playing; an empty tile has no such context,
-        // and a flat list of every channel is tens of thousands of rows on a real playlist.
-        multiviewPickFor?.let { tile ->
-            if (multiviewCategory == null && multiviewCategories.isNotEmpty()) {
-                // The Live screen's own category sheet, not a second one: it already has the search
-                // field a list of hundreds of categories needs on a phone.
-                CategoryPickerSheet(
-                    labels = multiviewCategories.map { it.second },
-                    selectedIndex = -1,
-                    onSelect = { index ->
-                        multiviewCategories.getOrNull(index)?.first?.let { catId ->
-                            multiviewCategory = catId
-                            scope.launch { multiviewChannels = tuner.channelsInCategoryForPicker(catId) }
-                        }
-                    },
-                    // Backing out of the categories leaves the picker entirely.
-                    onDismiss = { multiviewPickFor = null },
-                    // Two steps: choosing a category opens its channels, it does not close the sheet.
-                    dismissOnSelect = false,
-                )
-            } else {
-                PlayerSheetHost(
-                    sheet = PlayerSheet.CHANNELS,
-                    player = activeEngine,
-                    channels = multiviewChannels,
-                brightness = brightness,
-                onBrightness = { setBrightness(it) },
-                    onPickChannel = { picked ->
-                        grid.fill(tile, picked)
-                        multiviewPickFor = null
-                        multiviewCategory = null
-                    },
-                    onOpenSheet = {},
-                    canAddSubtitles = false,
-                    onPickLocalSubtitle = {},
-                    onTuneToNumber = null,
-                    catchup = null,
-                    // Back goes UP to the categories, not out of the picker.
-                    onDismiss = { multiviewCategory = null },
-                )
-            }
-        }
-    }
-
     // The channel button goes through the categories first, like Multiview's picker: the phone's
     // sheet used to open on one category's channels, so a channel in any *other* category — or any
     // other playlist — could not be reached from the player at all. The category the user is
     // watching is pre-selected, so the common case is still one tap.
-    if (sheet == PlayerSheet.CHANNELS && !inPip && multiview == null && playerCategory == null) {
+    if (sheet == PlayerSheet.CHANNELS && !inPip && playerCategory == null) {
         LaunchedEffect(Unit) {
             if (!playerCategoriesLoaded) {
                 playerCategories = tuner.liveCategoriesForPicker()
@@ -823,7 +682,7 @@ fun PlayerScreen(
     // and the host went on drawing the lambda it was first given: opened while the categories were
     // still being read, it showed its search field and an empty list for ever — until a rotation
     // rebuilt everything. Waiting for the data costs one database read and cannot go stale.
-    if (sheet == PlayerSheet.CHANNELS && !inPip && multiview == null && playerCategory == null &&
+    if (sheet == PlayerSheet.CHANNELS && !inPip && playerCategory == null &&
         playerCategoriesLoaded && playerCategories.isNotEmpty()
     ) {
         CategoryPickerSheet(
@@ -840,7 +699,7 @@ fun PlayerScreen(
         )
     }
 
-    sheet.takeIf { !inPip && multiview == null && (it != PlayerSheet.CHANNELS || playerCategory != null) }?.let { open ->
+    sheet.takeIf { !inPip && (it != PlayerSheet.CHANNELS || playerCategory != null) }?.let { open ->
         PlayerSheetHost(
             sheet = open,
             player = activeEngine,

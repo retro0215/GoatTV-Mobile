@@ -13,6 +13,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import org.koin.compose.koinInject
+import tv.own.owntv.mobile.ui.screens.live.LiveTuner
+import tv.own.owntv.mobile.ui.screens.multiview.MultiviewScreen
+import tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession
 import kotlinx.coroutines.flow.SharedFlow
 import tv.own.owntv.mobile.BuildConfig
 import tv.own.owntv.mobile.dev.ThemeGalleryScreen
@@ -113,6 +117,9 @@ fun MobileNavHost(
                             navController.navigate(channelRoute(destination, channelId, openCatchup))
                         },
                         onOpenPlayer = { navController.navigate(PLAYER_ROUTE) },
+                        onOpenMultiview = { openPicker ->
+                            navController.navigate(multiviewRoute(openPicker)) { launchSingleTop = true }
+                        },
                         onOpenGuide = {
                             navController.navigate(MobileDestination.GUIDE.route) {
                                 launchSingleTop = true
@@ -243,6 +250,35 @@ fun MobileNavHost(
                     miniRequested.value = true
                     navController.leavePlayerStillPlaying()
                 },
+                // The grid takes over from this player, which leaves the back stack with it: Back from
+                // the grid must not land on a stopped player.
+                onOpenMultiview = {
+                    navController.navigate(multiviewRoute(openPicker = true)) {
+                        popUpTo(PLAYER_ROUTE) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+        composable(
+            route = MULTIVIEW_ROUTE_PATTERN,
+            arguments = listOf(navArgument(ARG_OPEN_PICKER) { type = NavType.BoolType; defaultValue = false }),
+        ) { entry ->
+            val session = koinInject<MultiviewSession>()
+            val tuner = koinInject<LiveTuner>()
+            MultiviewScreen(
+                session = session,
+                prefs = koinInject(),
+                onLeave = { navController.popBackStack() },
+                onClosed = { navController.popBackStack() },
+                onOpenInPlayer = { channel ->
+                    // The grid lets go of its streams first, so the full-screen channel has a
+                    // connection to open on; coming back tunes the grid again.
+                    session.suspend()
+                    tuner.switchTo(channel)
+                    navController.navigate(PLAYER_ROUTE)
+                },
+                openPickerOnEntry = entry.arguments?.getBoolean(ARG_OPEN_PICKER) == true,
             )
         }
         composable(SETUP_ROUTE) {
@@ -326,6 +362,20 @@ private const val ARG_ITEM_ID = "itemId"
  * the user to whatever they were looking at.
  */
 const val PLAYER_ROUTE = "player"
+
+/**
+ * Multiview, the phone's grid of up to five live channels. Like the player it hides the shell: every
+ * pixel is a picture. Its grid lives in a session outside the screen, so Back leaves it for later and
+ * only the grid's own X ends it.
+ */
+private const val ARG_OPEN_PICKER = "openPicker"
+
+const val MULTIVIEW_ROUTE = "multiview"
+
+const val MULTIVIEW_ROUTE_PATTERN = "$MULTIVIEW_ROUTE?$ARG_OPEN_PICKER={$ARG_OPEN_PICKER}"
+
+/** [openPicker] opens Add to Multiview over the grid straight away — the way in from a single channel. */
+fun multiviewRoute(openPicker: Boolean): String = "$MULTIVIEW_ROUTE?$ARG_OPEN_PICKER=$openPicker"
 
 /**
  * Adding a playlist, or restoring a backup. Like the player it hides the shell: the bars would offer

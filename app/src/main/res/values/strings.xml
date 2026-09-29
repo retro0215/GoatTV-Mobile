@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="goat_icon_1">Goat 1</string>
     <string name="goat_icon_2">Goat 2</string>
     <string name="goat_icon_3">Goat 3</string>
@@ -61,4 +61,45 @@
     <string name="content_trailer_mute">Mute trailer</string>
     <string name="content_trailer_unmute">Unmute trailer</string>
     <string name="content_trailer_fullscreen">Open trailer in YouTube</string>
+
+    <!-- Multiview (phone grid, up to five live channels) -->
+    <string name="multiview_count"><xliff:g id="count">%1$d</xliff:g> / <xliff:g id="max">%2$d</xliff:g></string>
+    <string name="multiview_close">Close Multiview</string>
+    <string name="multiview_empty">No channels in Multiview yet.</string>
+    <string name="multiview_grid_layout">Grid layout</string>
+    <string name="multiview_make_audio">Play sound from this tile</string>
+    <string name="multiview_fullscreen_in_grid">Full screen in grid</string>
+    <string name="multiview_spotlight">Spotlight this tile</string>
+    <string name="multiview_spotlight_remove">Remove spotlight</string>
+    <string name="multiview_move_tile">Move tile</string>
+    <string name="multiview_tap_to_swap">Tap a tile to swap</string>
+    <string name="multiview_double_tap_exit">Double-tap to exit full screen</string>
+    <string name="multiview_layout_default">Layout: Default</string>
+    <string name="multiview_layout_even">Layout: Even grid</string>
+    <string name="multiview_layout_stacked">Layout: Stacked</string>
+    <string name="multiview_playback_problem">Playback problem</string>
+    <string name="multiview_full">Multiview is full · <xliff:g id="max">%1$d</xliff:g> / <xliff:g id="max2">%1$d</xliff:g></string>
+    <string name="multiview_added_count">Added to Multiview · <xliff:g id="count">%1$d</xliff:g> / <xliff:g id="max">%2$d</xliff:g></string>
+    <string name="multiview_open">Open Multiview</string>
+    <string name="multiview_warning_title">Performance may degrade</string>
+    <string name="multiview_warning_body">Five channels at once use five of your provider\'s connections, a lot of bandwidth and several video decoders. Some devices may drop audio, buffer or run warm.</string>
+    <string name="multiview_warning_continue">Continue</string>
+    <string name="multiview_warning_dont_show">Don\'t show again</string>
+    <string name="multiview_picker_search">Search channels</string>
+    <string name="multiview_picker_close_search">Close search</string>
+    <string name="multiview_picker_done">Done (<xliff:g id="count">%1$d</xliff:g>)</string>
+    <string name="multiview_picker_empty">No channels here.</string>
+    <string name="settings_multiview_audio_indicator">Audio focus indicator</string>
+    <string name="settings_multiview_audio_indicator_description">How the grid shows which tile has the sound.</string>
+    <string name="settings_multiview_indicator_center">Center icon</string>
+    <string name="settings_multiview_indicator_center_description">A speaker on the tile with the sound, fading with the controls.</string>
+    <string name="settings_multiview_indicator_gray">Gray outline</string>
+    <string name="settings_multiview_indicator_gray_description">A subtle gray border always around the tile with the sound.</string>
+    <string name="settings_multiview_indicator_accent">Accent outline (fading)</string>
+    <string name="settings_multiview_indicator_accent_description">An accent border that appears when the sound moves and fades after five seconds.</string>
+    <string name="settings_multiview_padding">Padding between tiles</string>
+    <string name="settings_multiview_padding_description">A small gap between tiles, so each channel stands on its own.</string>
+    <string name="settings_multiview_corners">Tile corners</string>
+    <string name="settings_multiview_corners_square">Square</string>
+    <string name="settings_multiview_corners_rounded">Rounded</string>
 </resources>

@@ -28,9 +28,6 @@ import tv.own.owntv.core.settings.LiveBuffer
 import tv.own.owntv.core.settings.LiveLatency
 import tv.own.owntv.core.timeshift.TimeshiftRules
 import tv.own.owntv.core.settings.SeekSteps
-import tv.own.owntv.core.live.DEFAULT_MULTIVIEW_TILES
-import tv.own.owntv.core.live.MAX_MULTIVIEW_TILES
-import tv.own.owntv.core.live.MIN_MULTIVIEW_TILES
 import tv.own.owntv.core.settings.SettingsRepository
 import tv.own.owntv.core.settings.SubtitleStyle
 import tv.own.owntv.mobile.R
@@ -44,7 +41,7 @@ import tv.own.owntv.mobile.ui.theme.glassDialogWindow
 /** Which picker is open. One at a time, so one nullable holds them all. */
 private enum class PlaybackSheet {
     LIVE_ENGINE, VOD_ENGINE, ZOOM, SURROUND, AUDIO_LANG, SUB_LANG,
-    RESUME, LATENCY, SEEK_STEP, REWIND_STEP, EXTERNAL_PLAYER, MULTIVIEW_TILES,
+    RESUME, LATENCY, SEEK_STEP, REWIND_STEP, EXTERNAL_PLAYER, MULTIVIEW_INDICATOR, MULTIVIEW_CORNERS,
     VOD_BUFFER, VOD_TIMEOUT, VOD_RECONNECTS, MAX_QUALITY, MOBILE_QUALITY, TIMESHIFT_WINDOW,
 
     /**
@@ -157,8 +154,11 @@ fun SettingsVideoPlayerPage(
     val externalMovies = s.externalPlayerMovies.pref(false)
     val externalSeries = s.externalPlayerSeries.pref(false)
     val externalOn = externalLive || externalMovies || externalSeries
-    val multiviewEnabled = s.multiviewEnabled.pref(false)
-    val multiviewTiles = s.multiviewTiles.pref(DEFAULT_MULTIVIEW_TILES)
+    // Multiview's own settings live with the grid, not in core: none of them exists on the television.
+    val multiviewPrefs = org.koin.compose.koinInject<tv.own.owntv.mobile.ui.screens.multiview.MultiviewPreferences>()
+    val multiviewStyle by multiviewPrefs.audioFocusStyle.collectAsStateWithLifecycle()
+    val multiviewPadding by multiviewPrefs.tilePadding.collectAsStateWithLifecycle()
+    val multiviewRounded by multiviewPrefs.roundedCorners.collectAsStateWithLifecycle()
 
     SettingsPage(modifier) {
         // Playback settings open on this list of categories; each opens a page of its own.
@@ -475,25 +475,28 @@ fun SettingsVideoPlayerPage(
             }
             SettingsLeaf.VP_MULTIVIEW -> {
                 settingsGroup(key = "multiview") {
-                    // Multiview. The phone had neither of these: the feature defaults to off and there was
-                    // no way to turn it on, so the grid was unreachable however well it worked.
+                    // AerioTV's three, with its defaults. Multiview itself needs no switch: every brand
+                    // has it, from the Live TV tab, a channel's menu and the player.
                     SettingRow(
-                        title = stringResource(R.string.settings_multiview),
-                        subtitle = stringResource(R.string.settings_multiview_description),
-                        checked = multiviewEnabled,
-                        onCheckedChange = { on -> vm.edit { setMultiviewEnabled(on) } },
+                        title = stringResource(R.string.settings_multiview_audio_indicator),
+                        subtitle = stringResource(R.string.settings_multiview_audio_indicator_description),
+                        value = stringResource(multiviewStyle.labelRes()),
+                        onClick = { sheet = PlaybackSheet.MULTIVIEW_INDICATOR },
                     )
-
-                    if (multiviewEnabled) {
-                        SettingRow(
-                            title = stringResource(R.string.settings_multiview_tiles_max),
-                            subtitle = stringResource(R.string.settings_multiview_description),
-                            // "Max 4", not "4": the number is a ceiling. The grid opens with two and grows
-                            // only when the user asks, so a bare number would read as "every grid is this big".
-                            value = stringResource(R.string.settings_multiview_tiles_max_value, multiviewTiles),
-                            onClick = { sheet = PlaybackSheet.MULTIVIEW_TILES },
-                        )
-                    }
+                    SettingRow(
+                        title = stringResource(R.string.settings_multiview_padding),
+                        subtitle = stringResource(R.string.settings_multiview_padding_description),
+                        checked = multiviewPadding,
+                        onCheckedChange = multiviewPrefs::setTilePadding,
+                    )
+                    SettingRow(
+                        title = stringResource(R.string.settings_multiview_corners),
+                        value = stringResource(
+                            if (multiviewRounded) R.string.settings_multiview_corners_rounded
+                            else R.string.settings_multiview_corners_square,
+                        ),
+                        onClick = { sheet = PlaybackSheet.MULTIVIEW_CORNERS },
+                    )
                 }
             }
             SettingsLeaf.VP_SOUND -> {
@@ -637,13 +640,23 @@ fun SettingsVideoPlayerPage(
             onSelect = { picked -> vm.edit { setLiveEnginePreference(picked) } },
             onDismiss = dismiss,
         )
-        PlaybackSheet.MULTIVIEW_TILES -> SettingsChoiceSheet(
-            title = stringResource(R.string.settings_multiview_tiles_max),
-            choices = (MIN_MULTIVIEW_TILES..MAX_MULTIVIEW_TILES).map {
-                SettingsChoice(it, stringResource(R.string.settings_multiview_tiles_max_value, it))
+        PlaybackSheet.MULTIVIEW_INDICATOR -> SettingsChoiceSheet(
+            title = stringResource(R.string.settings_multiview_audio_indicator),
+            choices = tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.entries.map {
+                SettingsChoice(it, stringResource(it.labelRes()), stringResource(it.descriptionRes()))
             },
-            selected = multiviewTiles,
-            onSelect = { picked -> vm.edit { setMultiviewTiles(picked) } },
+            selected = multiviewStyle,
+            onSelect = multiviewPrefs::setAudioFocusStyle,
+            onDismiss = dismiss,
+        )
+        PlaybackSheet.MULTIVIEW_CORNERS -> SettingsChoiceSheet(
+            title = stringResource(R.string.settings_multiview_corners),
+            choices = listOf(
+                SettingsChoice(false, stringResource(R.string.settings_multiview_corners_square)),
+                SettingsChoice(true, stringResource(R.string.settings_multiview_corners_rounded)),
+            ),
+            selected = multiviewRounded,
+            onSelect = multiviewPrefs::setRoundedCorners,
             onDismiss = dismiss,
         )
         PlaybackSheet.VOD_ENGINE -> SettingsChoiceSheet(
@@ -1201,3 +1214,15 @@ private fun LiveLatency.labelRes() = when (this) {
 @Composable
 private fun autoOrSeconds(secs: Int): String =
     if (secs <= 0) stringResource(R.string.settings_vod_network_auto) else stringResource(R.string.settings_live_buffer_seconds, secs)
+
+private fun tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.labelRes(): Int = when (this) {
+    tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.CenterIcon -> R.string.settings_multiview_indicator_center
+    tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.GrayOutline -> R.string.settings_multiview_indicator_gray
+    tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.AccentFading -> R.string.settings_multiview_indicator_accent
+}
+
+private fun tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.descriptionRes(): Int = when (this) {
+    tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.CenterIcon -> R.string.settings_multiview_indicator_center_description
+    tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.GrayOutline -> R.string.settings_multiview_indicator_gray_description
+    tv.own.owntv.mobile.ui.screens.multiview.AudioFocusStyle.AccentFading -> R.string.settings_multiview_indicator_accent_description
+}

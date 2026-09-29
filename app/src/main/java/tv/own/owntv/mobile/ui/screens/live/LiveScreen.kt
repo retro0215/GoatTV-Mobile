@@ -84,14 +84,15 @@ fun LiveScreen(
     scrollToTop: SharedFlow<String>,
     onOpenChannel: (channelId: Long, openCatchup: Boolean) -> Unit,
     onOpenPlayer: () -> Unit,
+    /** Open the Multiview grid; true opens Add to Multiview over it too. */
+    onOpenMultiview: (openPicker: Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     lockedKey: LiveKey? = null,
     onOpenGuide: (() -> Unit)? = null,
     vm: LiveViewModel = koinViewModel(),
 ) {
     val tuner: LiveTuner = koinInject()
-    val multiviewSelection by tuner.multiviewSelection.collectAsStateWithLifecycle()
-    val multiviewPending = multiviewSelection.isNotEmpty()
+    val multiview: tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession = koinInject()
 
     if (lockedKey != null) {
         val pinned = lockedKey
@@ -314,6 +315,23 @@ fun LiveScreen(
                     Text(text = stringResource(R.string.live_categories_button))
                 }
 
+                // Multiview: the channel in the preview becomes the grid's first tile when there is no
+                // grid yet; an existing grid simply opens as it was left.
+                IconButton(
+                    onClick = {
+                        val preview = tunedChannel
+                        val fresh = multiview.model.value.isEmpty
+                        if (fresh && preview != null) {
+                            multiview.seedFront(tv.own.owntv.mobile.ui.screens.multiview.MultiviewContent.Live(preview))
+                        }
+                        onOpenMultiview(fresh)
+                    },
+                ) {
+                    Icon(
+                        imageVector = MobileIcons.GridView,
+                        contentDescription = stringResource(R.string.multiview_open),
+                    )
+                }
                 IconButton(
                     onClick = { showChannelSearch = !showChannelSearch },
                 ) {
@@ -385,10 +403,7 @@ fun LiveScreen(
                                 isSelected = isSelected,
                                 isFavorite = channel.id in favoriteIds,
                                 onClick = {
-                                    if (multiviewPending) {
-                                        tuner.selectWithoutPlaying(channel)
-                                        onOpenPlayer()
-                                    } else if (isSelected) {
+                                    if (isSelected) {
                                         toFullscreen = true
                                         onOpenPlayer()
                                     } else {
