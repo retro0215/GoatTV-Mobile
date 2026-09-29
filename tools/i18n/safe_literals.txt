@@ -79,6 +79,7 @@
 1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileDestination.kt	movies
 1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileDestination.kt	series
 1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileDestination.kt	settings
+1	uri	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileDestination.kt	sports
 1	empty	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileNavHost.kt	\0
 1	uri	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileNavHost.kt	$MULTIVIEW_ROUTE?$ARG_OPEN_PICKER=$openPicker
 1	uri	app/src/main/java/tv/own/owntv/mobile/ui/nav/MobileNavHost.kt	$MULTIVIEW_ROUTE?$ARG_OPEN_PICKER={$ARG_OPEN_PICKER}
@@ -606,6 +607,52 @@
 2	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/customize/CustomizeSpanUi.kt	\0
 1	json	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/customize/CustomizeSupport.kt	new
 1	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/customize/CustomizeViewModel.kt	\0
+2	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	\0
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	AMERICAN
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	BELLATOR
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	BOXING
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	BUNDESLIGA
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	CBB
+2	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	CFB
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	CHAMPIONS LEAGUE
+3	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	COLLEGE
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	COLLEGE BASKETBALL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	COLLEGE FOOTBALL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	EPL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	EXTRA INNINGS
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	FOOTBALL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	LA LIGA
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	LEAGUE PASS
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	LIGUE 1
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	MLB
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	MLS
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	MMA
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NBA
+3	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NCAA
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NCAA BASKETBALL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NCAA FOOTBALL
+2	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NCAAB
+2	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NCAAF
+2	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NFL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NFL GAME PASS
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NFL PACKAGE
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	NHL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	PAY PER VIEW
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	PAY-PER-VIEW
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	PFL
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	PPV
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	PREMIER LEAGUE
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	SERIE A
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	SOCCER
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	SPECIAL EVENT
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	SPECIAL EVENTS
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	SUNDAY TICKET
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	UFC
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	W N B A
+2	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	WNBA
+1	regex	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	[^A-Z0-9 ]
+1	regex	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	\\s+
+1	uri	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsScreen.kt	sports
 15	empty	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	\0
 1	file-path	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	playlists
 1	mime	app/src/main/java/tv/own/owntv/mobile/ui/setup/SetupFiles.kt	*/*

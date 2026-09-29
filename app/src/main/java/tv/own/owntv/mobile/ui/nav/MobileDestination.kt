@@ -25,6 +25,9 @@ enum class MobileDestination(
 ) {
     HOME("home", R.string.common_nav_home, MobileIcons.Home, setOf(MainSection.HOME)),
     LIVE("live", R.string.common_nav_live_tv, MobileIcons.LiveTv, setOf(MainSection.LIVE_TV)),
+    // The television's Sports section: provider live categories grouped by league. Core has no Sports
+    // section of its own — it is a view over Live TV — so it shows whenever Live TV does.
+    SPORTS("sports", R.string.content_category_sports, MobileIcons.Star, setOf(MainSection.LIVE_TV)),
     LIBRARY(
         "library",
         R.string.common_nav_library,
@@ -47,11 +50,14 @@ enum class MobileDestination(
     SETTINGS("settings", R.string.common_nav_settings, MobileIcons.Settings, emptySet());
 
     companion object {
-        /** The bottom bar, in order. Library stands in for Movies and Series on a narrow screen. */
-        val bottomBar: List<MobileDestination> = listOf(HOME, LIVE, LIBRARY, GUIDE, MORE)
+        /**
+         * The bottom bar, in order. Library stands in for Movies and Series on a narrow screen. Six
+         * items: Sports is a destination of its own, as it is in the television's sidebar.
+         */
+        val bottomBar: List<MobileDestination> = listOf(HOME, LIVE, SPORTS, LIBRARY, GUIDE, MORE)
 
         /**
-         * The rail, in order. The same five places as the bottom bar, with Library split into
+         * The rail, in order. The same six places as the bottom bar, with Library split into
          * Movies and Series because a rail has the room for both.
          *
          * **Downloads and Settings are deliberately not on it.** They are not browse sections — they
@@ -59,7 +65,7 @@ enum class MobileDestination(
          * different app from the phone rather than the same one with more room.
          */
         val rail: List<MobileDestination> =
-            listOf(HOME, LIVE, MOVIES, SERIES, GUIDE, MORE)
+            listOf(HOME, LIVE, SPORTS, MOVIES, SERIES, GUIDE, MORE)
 
         /**
          * Filters a bar or rail to what the active playlist actually offers. A destination with no

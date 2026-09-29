@@ -136,6 +136,7 @@ fun PlayerScreen(
     val film by vodTuner.playing.collectAsStateWithLifecycle()
     val nowNext by tuner.nowNext.collectAsStateWithLifecycle()
     val siblings by tuner.siblings.collectAsStateWithLifecycle()
+    val zapList by tuner.zapList.collectAsStateWithLifecycle()
     val offsetSec by tuner.offsetSec.collectAsStateWithLifecycle()
     val watchingWallMs by tuner.watchingWallMs.collectAsStateWithLifecycle()
     val timelineProgrammes by tuner.timelineProgrammes.collectAsStateWithLifecycle()
@@ -670,7 +671,16 @@ fun PlayerScreen(
     // sheet used to open on one category's channels, so a channel in any *other* category — or any
     // other playlist — could not be reached from the player at all. The category the user is
     // watching is pre-selected, so the common case is still one tap.
-    if (sheet == PlayerSheet.CHANNELS && !inPip && playerCategory == null) {
+    //
+    // A channel opened from a Sports section zaps through that section, as it does on the television:
+    // the sheet opens straight on it, Back from it reaches the categories, and the section stays the
+    // first of them. Only while the channel on screen is still one of the section's.
+    val zapSection = zapList?.takeIf { list -> channel != null && list.channels.any { it.id == channel?.id } }
+    var zapBackedOut by remember(sheet) { mutableStateOf(false) }
+    val zapOpen = sheet == PlayerSheet.CHANNELS && playerCategory == null && zapSection != null && !zapBackedOut
+    val pickerCategories = zapList?.let { listOf(ZAP_LIST_CATEGORY to it.title) + playerCategories }
+        ?: playerCategories
+    if (sheet == PlayerSheet.CHANNELS && !inPip && playerCategory == null && !zapOpen) {
         LaunchedEffect(Unit) {
             if (!playerCategoriesLoaded) {
                 playerCategories = tuner.liveCategoriesForPicker()
@@ -682,16 +692,21 @@ fun PlayerScreen(
     // and the host went on drawing the lambda it was first given: opened while the categories were
     // still being read, it showed its search field and an empty list for ever — until a rotation
     // rebuilt everything. Waiting for the data costs one database read and cannot go stale.
-    if (sheet == PlayerSheet.CHANNELS && !inPip && playerCategory == null &&
-        playerCategoriesLoaded && playerCategories.isNotEmpty()
+    if (sheet == PlayerSheet.CHANNELS && !inPip && playerCategory == null && !zapOpen &&
+        playerCategoriesLoaded && pickerCategories.isNotEmpty()
     ) {
         CategoryPickerSheet(
-            labels = playerCategories.map { it.second },
-            selectedIndex = playerCategories.indexOfFirst { it.first == channel?.categoryId },
+            labels = pickerCategories.map { it.second },
+            selectedIndex = if (zapSection != null) 0 else pickerCategories.indexOfFirst { it.first == channel?.categoryId },
             onSelect = { index ->
-                playerCategories.getOrNull(index)?.first?.let { catId ->
+                pickerCategories.getOrNull(index)?.first?.let { catId ->
                     playerCategory = catId
-                    scope.launch { playerChannels = tuner.channelsInCategoryForPicker(catId) }
+                    val section = zapList
+                    if (catId == ZAP_LIST_CATEGORY && section != null) {
+                        playerChannels = section.channels
+                    } else {
+                        scope.launch { playerChannels = tuner.channelsInCategoryForPicker(catId) }
+                    }
                 }
             },
             onDismiss = { sheet = null },
@@ -699,11 +714,15 @@ fun PlayerScreen(
         )
     }
 
-    sheet.takeIf { !inPip && (it != PlayerSheet.CHANNELS || playerCategory != null) }?.let { open ->
+    sheet.takeIf { !inPip && (it != PlayerSheet.CHANNELS || playerCategory != null || zapOpen) }?.let { open ->
         PlayerSheetHost(
             sheet = open,
             player = activeEngine,
-            channels = if (open == PlayerSheet.CHANNELS) playerChannels else siblings,
+            channels = when {
+                open != PlayerSheet.CHANNELS -> siblings
+                zapOpen -> zapSection?.channels.orEmpty()
+                else -> playerChannels
+            },
             brightness = brightness,
             onBrightness = { setBrightness(it) },
             onPickChannel = { tuner.switchTo(it) },
@@ -717,10 +736,19 @@ fun PlayerScreen(
             catchup = catchup,
             programmeEndMs = if (channel != null) nowNext?.now?.stopMs else null,
             // Back out of a channel list returns to the categories, not out of the player's sheets.
-            onDismiss = { if (open == PlayerSheet.CHANNELS) playerCategory = null else sheet = null },
+            onDismiss = {
+                when {
+                    open != PlayerSheet.CHANNELS -> sheet = null
+                    zapOpen -> zapBackedOut = true
+                    else -> playerCategory = null
+                }
+            },
         )
     }
 }
+
+/** The picker's id for the Sports section a channel was opened from — never a real category id. */
+private const val ZAP_LIST_CATEGORY = Long.MIN_VALUE
 
 /** Whatever a double tap means here: the user's own skip step, or the live rewind step of archive. */
 private fun skip(tuner: LiveTuner, isLive: Boolean, forward: Boolean) {

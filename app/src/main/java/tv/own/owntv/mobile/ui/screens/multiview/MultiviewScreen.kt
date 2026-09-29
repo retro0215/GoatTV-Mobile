@@ -782,7 +782,7 @@ private fun MenuRow(label: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PerformanceWarning(onContinue: () -> Unit, onDontShowAgain: () -> Unit, onCancel: () -> Unit) {
+internal fun PerformanceWarning(onContinue: () -> Unit, onDontShowAgain: () -> Unit, onCancel: () -> Unit) {
     AlertDialog(
         onDismissRequest = onCancel,
         title = { Text(stringResource(R.string.multiview_warning_title)) },

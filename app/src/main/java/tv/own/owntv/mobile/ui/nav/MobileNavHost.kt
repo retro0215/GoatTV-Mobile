@@ -34,6 +34,7 @@ import tv.own.owntv.mobile.ui.screens.library.LibraryTab
 import tv.own.owntv.mobile.ui.screens.live.ChannelDetailScreen
 import tv.own.owntv.mobile.ui.screens.live.LiveScreen
 import tv.own.owntv.mobile.ui.screens.search.SearchScreen
+import tv.own.owntv.mobile.ui.screens.sports.SportsScreen
 import tv.own.owntv.mobile.ui.screens.settings.SettingsGroup
 import tv.own.owntv.mobile.ui.screens.settings.SettingsGroupPage
 import tv.own.owntv.mobile.ui.screens.settings.SettingsLeaf
@@ -124,6 +125,15 @@ fun MobileNavHost(
                             navController.navigate(MobileDestination.GUIDE.route) {
                                 launchSingleTop = true
                             }
+                        },
+                    )
+                    // Back from the player or from Multiview pops to this entry, so Sports comes back
+                    // with its view model — selection and rows — and its saved scroll position.
+                    MobileDestination.SPORTS -> SportsScreen(
+                        scrollToTop = scrollToTop,
+                        onOpenPlayer = { navController.navigate(PLAYER_ROUTE) },
+                        onOpenMultiview = { openPicker ->
+                            navController.navigate(multiviewRoute(openPicker)) { launchSingleTop = true }
                         },
                     )
                     MobileDestination.DOWNLOADS -> DownloadsScreen(

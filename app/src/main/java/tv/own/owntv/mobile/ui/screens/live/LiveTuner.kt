@@ -486,8 +486,16 @@ class LiveTuner(
         }
     }
 
-    /** Open [channelId]: read the row, start it, and fill the guide and the channel list around it. */
-    fun tune(channelId: Long) {
+    /**
+     * Open [channelId]: read the row, start it, and fill the guide and the channel list around it.
+     *
+     * [zapList] replaces the channel's own folder as the list around it — Sports opens a channel from
+     * one of its sections, and on the television that section is what the player zaps through. Every
+     * other caller leaves it null and gets the channel's category, as before.
+     */
+    fun tune(channelId: Long, zapList: ZapList? = null) {
+        _zapList.value = zapList
+        if (zapList != null) _siblings.value = zapList.channels
         // `hasStream`, not mpv's own: on live-on-ExoPlayer mpv always answers "nothing here", so
         // re-opening the channel you are already watching tore the stream down and rebuilt it —
         // a reconnection and a second of black for a screen you had just come back to.
@@ -497,9 +505,17 @@ class LiveTuner(
         live.launch {
             val channel = withContext(Dispatchers.IO) { channelDao.getById(channelId) } ?: return@launch
             open(channel)
-            loadSiblings(channel)
+            if (zapList == null) loadSiblings(channel)
         }
     }
+
+    /** A named list of channels to zap through in place of the channel's own folder. */
+    data class ZapList(val title: String, val channels: List<ChannelEntity>)
+
+    private val _zapList = MutableStateFlow<ZapList?>(null)
+
+    /** The list the last [tune] was given, for the player's channel sheet; null means "its folder". */
+    val zapList: StateFlow<ZapList?> = _zapList
 
     /** Switch to another channel without leaving the screen — the Channels tab and the overlay. */
     fun switchTo(channel: ChannelEntity) {
@@ -959,6 +975,7 @@ class LiveTuner(
         loadedId = null
         lastCatchup = null
         if (clearChannel) {
+            _zapList.value = null
             _channel.value = null
             _nowNext.value = null
             _timelineProgrammes.value = emptyList()

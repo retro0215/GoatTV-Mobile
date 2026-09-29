@@ -537,9 +537,9 @@ private const val MAX_MINUTES = 14 * 60
 private const val SEARCH_DEBOUNCE_MS = 250L
 private val SHIFT_LABEL_WIDTH = 96.dp
 
-/** Keep [channel] for the grid and say how full it now is, or that it is already full. */
+/** Keep [channel] for the grid and say how full it now is, or that it is already full. Sports uses it too. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-private fun addToMultiview(
+internal fun addToMultiview(
     session: tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession,
     channel: ChannelEntity,
     context: android.content.Context,

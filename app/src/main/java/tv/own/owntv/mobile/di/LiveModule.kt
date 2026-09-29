@@ -8,6 +8,7 @@ import tv.own.owntv.core.live.LiveEpgReader
 import tv.own.owntv.mobile.ui.screens.live.ChannelDetailViewModel
 import tv.own.owntv.mobile.ui.screens.live.LiveTuner
 import tv.own.owntv.mobile.ui.screens.live.LiveViewModel
+import tv.own.owntv.mobile.ui.screens.sports.SportsViewModel
 
 /**
  * Live TV's view models, and the tuner they share.
@@ -50,6 +51,7 @@ val liveModule = module {
     }
     viewModelOf(::LiveViewModel)
     viewModelOf(::ChannelDetailViewModel)
+    viewModelOf(::SportsViewModel)
     // Multiview: one grid per process, so it outlives its screen (Back, Home, a tile opened full
     // screen) and only its X ends it. The engines are PlayerModule's pool, one per player slot.
     single { tv.own.owntv.mobile.ui.screens.multiview.MultiviewPreferences(androidContext()) }
