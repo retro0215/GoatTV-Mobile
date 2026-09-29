@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug only: the debug build is its own package (applicationIdSuffix ".debug") and installs
+     beside the customer app, so its launcher name must not be the same. -->
+<resources>
+    <string name="app_name" translatable="false">Supreme TV Dev</string>
+</resources>

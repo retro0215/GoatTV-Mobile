@@ -25,8 +25,11 @@ object BrandConfig {
     val brandDescriptionRes: Int get() = currentBrand.descriptionRes
     val isBranded: Boolean = true
 
-    private fun resolveCurrentBrand(): MobileBrand {
-        val pkg = BuildConfig.APPLICATION_ID
-        return MobileBrand.entries.firstOrNull { it.applicationId == pkg } ?: MobileBrand.GOAT
-    }
+    /**
+     * By the brand flavor, not the package: a debug build is `<package>.debug`, and matching on the
+     * package sent every debug brand to GoatTV. A flavor with no brand here fails at startup, not as a
+     * silent GoatTV.
+     */
+    private fun resolveCurrentBrand(): MobileBrand =
+        MobileBrand.entries.first { it.brandId == BuildConfig.FLAVOR_brand }
 }

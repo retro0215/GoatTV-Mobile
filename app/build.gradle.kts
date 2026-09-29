@@ -29,6 +29,26 @@ plugins {
     alias(libs.plugins.baselineprofile)
 }
 
+// The GitHub owner/repo whose Releases carry all four brands' Mobile APKs, each on its own tag
+// prefix. Committed in gradle.properties (it is not a secret) and baked into BuildConfig.
+val mobileReleaseRepo: String = providers.gradleProperty("goattv.mobile.releaseRepo").orNull.orEmpty().trim()
+
+// The production version, for release builds only. See verifyMobileRelease at the end of this file.
+val mobileReleaseVersionName: String? =
+    (System.getenv("VERSION_NAME") ?: providers.gradleProperty("goattv.mobile.versionName").orNull)?.takeIf { it.isNotBlank() }
+val mobileReleaseVersionCodeOverride: String? =
+    (System.getenv("VERSION_CODE") ?: providers.gradleProperty("goattv.mobile.versionCode").orNull)?.takeIf { it.isNotBlank() }
+val mobileReleaseVersion: Pair<String, Int>? = mobileReleaseVersionName?.let { name ->
+    val parts = Regex("^(\\d+)\\.(\\d+)\\.(\\d+)$").matchEntire(name)?.groupValues?.drop(1)?.map { it.toInt() }
+        ?: return@let null
+    val (major, minor, patch) = parts
+    if (minor > 99 || patch > 99 || major > 2000) return@let null
+    val code = major * 10000 + minor * 100 + patch
+    if (code <= 0) return@let null
+    if (mobileReleaseVersionCodeOverride != null && mobileReleaseVersionCodeOverride.toIntOrNull() != code) return@let null
+    name to code
+}
+
 android {
     // Distinct from the TV app's tv.own.owntv, so both install side by side on one device and each
     // keeps its own data. This value can never change after the first release — the launcher label
@@ -38,11 +58,14 @@ android {
         version = release(37)
     }
 
-    // Signing credentials AND local-only build switches, kept in a standalone properties file OUTSIDE
-    // the repo. Gradle only reads gradle.properties from GRADLE_USER_HOME or the project dir, so this
-    // one is loaded by hand. Declared here because defaultConfig below already needs it.
+    // The Mobile release key's credentials AND local-only build switches, kept in a standalone
+    // properties file OUTSIDE the repo, next to the keystore itself. Gradle only reads
+    // gradle.properties from GRADLE_USER_HOME or the project dir, so this one is loaded by hand.
+    // Declared here because defaultConfig below already needs it. Deliberately NOT the TV app's
+    // owntv-signing.properties: these four apps have their own key, and a fallback to the TV file is
+    // exactly how the wrong key would get used without anyone noticing.
     val localSigningProps = Properties().apply {
-        val f = File("E:/MEGA/CODE/OwnTV_Gradle/owntv-signing.properties")
+        val f = File(System.getProperty("user.home"), ".goattv-signing/goattv-mobile-signing.properties")
         if (f.isFile) f.inputStream().use { load(it) }
     }
 
@@ -50,11 +73,12 @@ android {
         applicationId = "tv.own.owntv.mobile"
         minSdk = 26
         targetSdk = 36
-        // CI injects these from the git tag, exactly as in the TV app. The fallbacks are only used
-        // by local/debug builds and are pinned HIGH so a dev APK is always "newer" than a published
-        // release and installs straight over it.
-        versionCode = (System.getenv("VERSION_CODE") ?: "99999").toInt()
-        versionName = System.getenv("VERSION_NAME") ?: "99.99.99"
+        // Development values only. Debug builds keep them and install as their own package (see the
+        // debug build type's applicationIdSuffix), so they can never sit above a production install.
+        // A release build takes its version from VERSION_NAME / goattv.mobile.versionName instead —
+        // see the androidComponents block — and refuses to build without one.
+        versionCode = 99999
+        versionName = "99.99.99"
 
         // The three switches core reads through CoreBuildInfo. Same resolution order as the TV app:
         // env var (CI) > Gradle property > the out-of-repo properties file.
@@ -102,6 +126,8 @@ android {
             ?: ""
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseAnonKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
+        buildConfigField("String", "MOBILE_RELEASE_REPO", "\"$mobileReleaseRepo\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -141,24 +167,30 @@ android {
         }
     }
 
-    // The SAME keystore and the same property names as the TV app. A signing certificate must be
-    // stable per applicationId, not unique per app, and these two apps are maintained by one person
-    // — a second keystore would only add a second thing to lose. Env vars first (that is how CI
+    // ONE Mobile-only production key signs all four brands (goattv-mobile-release.jks, alias
+    // goattv-mobile). Never the TV app's key and never the debug key. Env vars first (that is how CI
     // injects the GitHub secrets), then user-wide Gradle properties, then the out-of-repo file.
-    // Nothing configured (a fork, a fresh clone) still builds; the APK is just unsigned.
+    // The names are Mobile-specific on purpose: the TV app's KEYSTORE_* / owntv.* names are not read
+    // at all, so a TV credential left in an environment can never sign one of these APKs.
+    // Nothing configured still builds DEBUG; a release build fails (verifyMobileRelease below).
     fun signingValue(env: String, property: String): String? =
-        System.getenv(env)
-            ?: providers.gradleProperty(property).orNull
-            ?: localSigningProps.getProperty(property)
+        (System.getenv(env) ?: providers.gradleProperty(property).orNull ?: localSigningProps.getProperty(property))
+            ?.takeIf { it.isNotBlank() }
 
-    val releaseKeystore = signingValue("KEYSTORE_FILE", "owntv.keystoreFile")
+    val releaseKeystore = signingValue("MOBILE_KEYSTORE_FILE", "goattv.mobile.keystoreFile")
+    val releaseStorePassword = signingValue("MOBILE_KEYSTORE_PASSWORD", "goattv.mobile.keystorePassword")
+    val releaseKeyAlias = signingValue("MOBILE_KEY_ALIAS", "goattv.mobile.keyAlias")
+    val releaseKeyPassword = signingValue("MOBILE_KEY_PASSWORD", "goattv.mobile.keyPassword")
+    val releaseSigningComplete = releaseKeystore != null && file(releaseKeystore).isFile &&
+        releaseStorePassword != null && releaseKeyAlias != null && releaseKeyPassword != null
     signingConfigs {
-        if (releaseKeystore != null) {
+        if (releaseSigningComplete) {
             create("release") {
-                storeFile = file(releaseKeystore)
-                storePassword = signingValue("KEYSTORE_PASSWORD", "owntv.keystorePassword")
-                keyAlias = signingValue("KEY_ALIAS", "owntv.keyAlias")
-                keyPassword = signingValue("KEY_PASSWORD", "owntv.keyPassword")
+                storeFile = file(releaseKeystore!!)
+                storeType = "PKCS12"
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
@@ -176,6 +208,10 @@ android {
             // ever sees it. localeFilters below would otherwise strip them, so the debug-only
             // qualifiers are added back through the per-variant API in the androidComponents block.
             isPseudoLocalesEnabled = true
+            // A debug build is its own package (tv.goat.tv.mobile.debug, …), signed with the debug
+            // key and versioned 99999. Sharing the production package would let it block a signed
+            // release install — a signature conflict, or a "downgrade" from 99999 to 10000.
+            applicationIdSuffix = ".debug"
         }
         release {
             isMinifyEnabled = true
@@ -184,7 +220,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            if (releaseKeystore != null) {
+            if (releaseSigningComplete) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -243,6 +279,17 @@ android {
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.androidResources.localeFilters.addAll("en-rXA", "ar-rXB")
+    }
+    // Production versions. versionCode is derived from versionName (major*10000 + minor*100 + patch:
+    // 1.0.0 -> 10000, 0.9.0 -> 900), so the two can never disagree; an explicit VERSION_CODE must
+    // match the formula. Every brand shares the numbers — their applicationIds differ, so each has
+    // its own upgrade lineage. Missing or malformed values fail the release build (below).
+    onVariants(selector().withBuildType("release")) { variant ->
+        val version = mobileReleaseVersion ?: return@onVariants
+        variant.outputs.forEach { output ->
+            output.versionName.set(version.first)
+            output.versionCode.set(version.second)
+        }
     }
 }
 
@@ -436,3 +483,48 @@ dependencies {
     // never exercised by CI; see baselineprofile/BaselineProfileGenerator.kt.
     baselineProfile(project(":baselineprofile"))
 }
+
+// --- production release gate -----------------------------------------------------------------
+//
+// A release APK is only ever a customer-installable one: signed with the Mobile production key,
+// carrying a real version, and pointing its updater at a real repository. Anything missing fails
+// the build before compilation, instead of producing an unsigned or 99999 APK that looks like a
+// release. Debug builds never run this.
+//
+// The single escape is -Pgoattv.mobile.unsignedInspectionBuild=true, for CI jobs that only inspect
+// a release APK's contents (i18n.yml's pseudolocale check) and never distribute it.
+val verifyMobileRelease by tasks.registering {
+    group = "verification"
+    description = "Fails a release build that is unsigned, unversioned or has no update repository."
+    val inspectionOnly = providers.gradleProperty("goattv.mobile.unsignedInspectionBuild").orNull == "true"
+    val problems = if (inspectionOnly) emptyList() else buildList {
+        if (android.signingConfigs.findByName("release") == null) {
+            add(
+                "Mobile production signing is not configured. Set MOBILE_KEYSTORE_FILE, MOBILE_KEYSTORE_PASSWORD, " +
+                    "MOBILE_KEY_ALIAS and MOBILE_KEY_PASSWORD, or the goattv.mobile.* keys in " +
+                    "~/.goattv-signing/goattv-mobile-signing.properties (and the keystore file must exist).",
+            )
+        }
+        if (mobileReleaseVersion == null) {
+            add(
+                "No valid release version. Set VERSION_NAME (or -Pgoattv.mobile.versionName) to X.Y.Z; " +
+                    "VERSION_CODE, if set, must equal major*10000 + minor*100 + patch. Got name=" +
+                    "${mobileReleaseVersionName ?: "<unset>"}, code=${mobileReleaseVersionCodeOverride ?: "<derived>"}.",
+            )
+        }
+        if (mobileReleaseRepo.isBlank()) {
+            add("goattv.mobile.releaseRepo is blank in gradle.properties; the in-app updater would have nowhere to look.")
+        }
+    }
+    doLast {
+        if (problems.isNotEmpty()) {
+            throw GradleException("Refusing to build a Mobile release APK:\n  - " + problems.joinToString("\n  - "))
+        }
+    }
+}
+
+// Exactly the customer release variants (preGoatStandardReleaseBuild, ...). The baseline profile
+// plugin's nonMinifiedRelease / benchmarkRelease variants are recording tools, not releases, and
+// are left alone.
+tasks.matching { it.name.matches(Regex("^pre(Goat|Allaccess|Fivestar|Supreme)(Standard|X86_64)ReleaseBuild$")) }
+    .configureEach { dependsOn(verifyMobileRelease) }
