@@ -155,8 +155,15 @@ fun HomeScreen(
         if (promotions.isNotEmpty()) {
             item("promotions") { MobileHomePromotionsSection(promotions = promotions) }
         }
-        weather?.let { info ->
-            item("weather") { WeatherChip(info = info, unit = temperatureUnit) }
+        // Always present, a 1dp placeholder until the forecast arrives. The weather lands after the
+        // rails are on screen, and a keyed list keeps its first visible item where it is: inserted
+        // then, the chip went in above the viewport and was only found by scrolling up. Holding the
+        // slot from the start makes it the item the list is anchored to, so the chip appears in place.
+        // It must have height: the list does not count an empty (zero-height) item as visible, and
+        // anchors to the rail below it instead.
+        item("weather") {
+            val info = weather
+            if (info != null) WeatherChip(info = info, unit = temperatureUnit) else Spacer(Modifier.height(1.dp))
         }
         val topMoviesList: List<MovieEntity> = topMovies
         if (topMoviesList.isNotEmpty()) {
