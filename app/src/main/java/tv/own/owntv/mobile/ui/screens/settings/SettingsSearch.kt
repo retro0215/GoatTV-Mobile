@@ -47,7 +47,11 @@ fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
         SettingsRowEntry(SettingsGroup.APPEARANCE, SettingsLeaf.GLASS_EFFECT, R.string.settings_glass_shine_short, R.string.settings_search_keywords_glass),
         SettingsRowEntry(SettingsGroup.APPEARANCE, SettingsLeaf.GLASS_EFFECT, R.string.settings_glass_surface_all, R.string.settings_search_keywords_glass),
         SettingsRowEntry(SettingsGroup.APPEARANCE, SettingsLeaf.WEATHER, R.string.settings_show_weather, R.string.settings_search_keywords_weather),
-        SettingsRowEntry(SettingsGroup.APPEARANCE, SettingsLeaf.WEATHER, R.string.settings_temperature_unit, R.string.settings_search_keywords_weather),
+        // Only where the Weather page offers the unit at all — never on a reseller app, which is Fahrenheit.
+        *listOfNotNull(
+            SettingsRowEntry(SettingsGroup.APPEARANCE, SettingsLeaf.WEATHER, R.string.settings_temperature_unit, R.string.settings_search_keywords_weather)
+                .takeIf { tv.own.owntv.mobile.weather.WeatherTemperature.userChoosesUnit(tv.own.owntv.mobile.brand.BrandConfig.currentBrand) },
+        ).toTypedArray(),
         SettingsRowEntry(SettingsGroup.APPEARANCE, SettingsLeaf.WEATHER, R.string.settings_use_device_location, R.string.settings_search_keywords_weather),
         SettingsRowEntry(SettingsGroup.LAYOUT, SettingsLeaf.HOME, R.string.home_row_now_trending, R.string.settings_search_keywords_home),
         SettingsRowEntry(SettingsGroup.LAYOUT, SettingsLeaf.HOME, R.string.home_trending_style, R.string.settings_search_keywords_home),

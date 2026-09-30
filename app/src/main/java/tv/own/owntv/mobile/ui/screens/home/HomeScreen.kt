@@ -65,6 +65,8 @@ import tv.own.owntv.core.model.HomeRow
 import tv.own.owntv.core.model.HomeTrendingStyle
 import tv.own.owntv.core.model.MediaType
 import tv.own.owntv.core.weather.WeatherInfo
+import tv.own.owntv.mobile.weather.TemperatureUnit
+import tv.own.owntv.mobile.weather.WeatherTemperature
 import tv.own.owntv.mobile.R
 import tv.own.owntv.core.home.TrendingHomeItem
 import tv.own.owntv.mobile.ui.components.ContentActionsMenu
@@ -100,7 +102,7 @@ fun HomeScreen(
 ) {
     val feed by vm.feed.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
-    val fahrenheit by vm.fahrenheit.collectAsStateWithLifecycle()
+    val temperatureUnit by vm.temperatureUnit.collectAsStateWithLifecycle()
     val favoriteChannels by vm.favoriteChannels.collectAsStateWithLifecycle()
     val favoriteMovies by vm.favoriteMovies.collectAsStateWithLifecycle()
     val favoriteSeries by vm.favoriteSeries.collectAsStateWithLifecycle()
@@ -154,7 +156,7 @@ fun HomeScreen(
             item("promotions") { MobileHomePromotionsSection(promotions = promotions) }
         }
         weather?.let { info ->
-            item("weather") { WeatherChip(info = info, fahrenheit = fahrenheit) }
+            item("weather") { WeatherChip(info = info, unit = temperatureUnit) }
         }
         val topMoviesList: List<MovieEntity> = topMovies
         if (topMoviesList.isNotEmpty()) {
@@ -822,13 +824,13 @@ private fun ChannelLogo(channel: ChannelEntity, size: androidx.compose.ui.unit.D
     }
 }
 
-/** Temperature, place and sky, in the unit the user chose. */
+/** Temperature, place and sky — in Fahrenheit on every branded app, the user's unit otherwise. */
 @Composable
-private fun WeatherChip(info: WeatherInfo, fahrenheit: Boolean) {
-    val temperature = if (fahrenheit) {
-        stringResource(R.string.common_weather_fahrenheit, (info.temperatureC * 9 / 5 + 32).toInt())
-    } else {
-        stringResource(R.string.common_weather_celsius, info.temperatureC.toInt())
+private fun WeatherChip(info: WeatherInfo, unit: TemperatureUnit) {
+    val degrees = WeatherTemperature.display(info.temperatureC, unit)
+    val temperature = when (unit) {
+        TemperatureUnit.FAHRENHEIT -> stringResource(R.string.common_weather_fahrenheit, degrees)
+        TemperatureUnit.CELSIUS -> stringResource(R.string.common_weather_celsius, degrees)
     }
     val text =
         if (info.city.isNotBlank()) stringResource(R.string.common_weather_city, temperature, info.city)

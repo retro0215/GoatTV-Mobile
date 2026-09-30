@@ -3,6 +3,7 @@ package tv.own.owntv.mobile.brand
 import tv.own.owntv.mobile.BuildConfig
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.update.MobileReleaseTrack
+import tv.own.owntv.mobile.weather.TemperatureUnit
 
 enum class MobileBrand(
     val brandId: String,
@@ -12,6 +13,8 @@ enum class MobileBrand(
     val descriptionRes: Int,
     /** This brand's own releases in the shared GoatTV-Mobile repository — never another brand's. */
     val releaseTrack: MobileReleaseTrack,
+    /** Every reseller app shows weather in Fahrenheit. */
+    val temperatureUnit: TemperatureUnit = TemperatureUnit.FAHRENHEIT,
 ) {
     GOAT(
         "goat", "GoatTV", "tv.goat.tv.mobile", "https://bp-v2.net", R.string.brand_description_goat,

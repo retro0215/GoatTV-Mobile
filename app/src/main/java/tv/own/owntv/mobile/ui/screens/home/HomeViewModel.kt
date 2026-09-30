@@ -40,6 +40,9 @@ import tv.own.owntv.core.network.ConnectivityObserver
 import tv.own.owntv.core.settings.SettingsRepository
 import tv.own.owntv.core.weather.WeatherInfo
 import tv.own.owntv.core.weather.WeatherRepository
+import tv.own.owntv.mobile.brand.BrandConfig
+import tv.own.owntv.mobile.weather.TemperatureUnit
+import tv.own.owntv.mobile.weather.WeatherTemperature
 import tv.own.owntv.mobile.ui.screens.ContentActions
 import tv.own.owntv.mobile.ui.screens.library.VodTuner
 import tv.own.owntv.mobile.sync.CatalogSyncCompletions
@@ -173,8 +176,14 @@ class HomeViewModel(
             if (!online || !enabled) flowOf<WeatherInfo?>(null) else flow { emit(weatherRepository.get(location)) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val fahrenheit: StateFlow<Boolean> = settings.weatherFahrenheit
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** The chip's unit: the brand's (Fahrenheit, for every reseller app), else the user's setting. */
+    val temperatureUnit: StateFlow<TemperatureUnit> = settings.weatherFahrenheit
+        .map { WeatherTemperature.unitFor(BrandConfig.currentBrand, it) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            WeatherTemperature.unitFor(BrandConfig.currentBrand, userPrefersFahrenheit = false),
+        )
 
     /** Switch a live row between logo cards and what-is-on-now. Stored where the TV app reads it. */
     fun toggleLiveMode(row: HomeRow) {

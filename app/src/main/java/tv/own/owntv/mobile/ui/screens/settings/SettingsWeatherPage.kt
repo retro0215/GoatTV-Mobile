@@ -21,6 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import org.koin.androidx.compose.koinViewModel
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.brand.BrandConfig
+import tv.own.owntv.mobile.weather.WeatherTemperature
 import tv.own.owntv.mobile.ui.components.SettingRow
 import tv.own.owntv.mobile.ui.theme.MobileDimens
 import java.util.Locale
@@ -80,6 +82,8 @@ fun SettingsWeatherPage(
         if (!usingDeviceLocation) {
             item(key = "location") { WeatherCityField(vm, stored) }
         }
+        // A reseller app shows Fahrenheit whatever this holds, so it offers no unit to choose.
+        if (!WeatherTemperature.userChoosesUnit(BrandConfig.currentBrand)) return@SettingsPage
         settingsGroup(key = "unit") {
             SettingRow(
                 title = stringResource(R.string.settings_temperature_unit),
