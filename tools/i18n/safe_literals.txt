@@ -368,7 +368,6 @@
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsHomePage.kt	rows
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsHomePage.kt	trending
 2	empty	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsLanguagePage.kt	\0
-1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsLanguagePage.kt	help
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsLanguagePage.kt	languages
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsLanguagePage.kt	search
 1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/settings/SettingsLayoutPage.kt	browsing

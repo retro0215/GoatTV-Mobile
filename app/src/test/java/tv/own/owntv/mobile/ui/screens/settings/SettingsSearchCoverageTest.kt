@@ -125,7 +125,7 @@ class SettingsSearchCoverageTest {
             "settings_focus_thickness", "settings_epg_sources_add", "settings_epg_sources_fill_playlist",
             "settings_sources_delete", "settings_sources_edit", "settings_sources_refresh_days_title",
             "common_clear", "settings_glass_effect_title", "settings_glass_preset_custom", "settings_glass_reset_balanced",
-            "settings_mode", "settings_language_help_translate", "settings_size", "settings_metadata_active_source",
+            "settings_mode", "settings_size", "settings_metadata_active_source",
             "settings_metadata_clear_advanced_title", "player_subtitles_connected_as", "player_subtitles_delete_action",
             "player_subtitles_downloads", "player_subtitles_resets", "player_subtitles_sign_in", "player_subtitles_sign_out",
             "settings_sources_add", "settings_sources_cancel", "settings_sources_info", "settings_sources_resync_now_full",
