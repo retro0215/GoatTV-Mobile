@@ -170,7 +170,7 @@ fun AddToMultiviewSheet(
                         FilterChip(
                             selected = category.key == selectedKey,
                             onClick = { vm.lock(category.key) },
-                            label = { Text(category.chipLabel(), maxLines = 1) },
+                            label = { Text(category.chipLabel(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         )
                     }
                 }
