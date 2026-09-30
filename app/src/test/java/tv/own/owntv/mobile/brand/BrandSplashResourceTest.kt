@@ -7,7 +7,8 @@ import java.io.File
 
 class BrandSplashResourceTest {
 
-    private val projectRoot = File("C:/Users/bronb/StudioProjects/GoatTV-Mobile/app/src")
+    // Module-relative: Gradle runs unit tests from the app module directory, locally and on CI.
+    private val projectRoot = File("src")
     private val brands = listOf("goat", "allaccess", "fivestar", "supreme")
     private val requiredStyles = listOf(
         "Theme.OwnTVMobile.Starting.Petrol",

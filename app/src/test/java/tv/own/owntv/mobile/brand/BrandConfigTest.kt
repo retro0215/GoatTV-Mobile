@@ -41,7 +41,8 @@ class BrandConfigTest {
 
     @Test
     fun inspectBrandLogoAssets() {
-        val root = File("C:/Users/bronb/StudioProjects/GoatTV-Mobile/app/src")
+        // Module-relative: Gradle runs unit tests from the app module directory, locally and on CI.
+        val root = File("src")
         val brands = listOf("goat", "allaccess", "fivestar", "supreme")
         for (b in brands) {
             val dir = File(root, "$b/res/drawable")
