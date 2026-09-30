@@ -319,14 +319,22 @@ jobs:
           echo "$BADGING" | grep -q "versionName='$VERSION_NAME' " \
             || { echo "::error::$APK does not carry versionName $VERSION_NAME."; exit 1; }
 
-          "$BT/apksigner" verify --print-certs "$APK" | tee certs.txt
-          ACTUAL=$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' certs.txt | tr -d ':[:space:]' | tr 'A-F' 'a-f')
+          # apksigner must itself accept the signature; a failure here fails the step.
+          "$BT/apksigner" verify --print-certs "$APK" > certs.txt
+          cat certs.txt
+          # Older build-tools print "Signer #1 certificate SHA-256 digest: …", newer ones print one line
+          # per scheme ("V2 Signer: certificate SHA-256 digest: …"). Accept either, then require exactly
+          # one distinct certificate across every signer line, equal to the production one. sed never
+          # fails on a non-match, so an unexpected format reaches the error below instead of aborting.
+          DIGESTS=$(sed -n 's/^.*[Ss]igner.*certificate SHA-256 digest: *//p' certs.txt \
+            | tr -d ':[:blank:]\r' | tr 'A-F' 'a-f' | sort -u)
+          COUNT=$(printf '%s\n' "$DIGESTS" | grep -c . || true)
           EXPECTED=$(echo "$MOBILE_CERT_SHA256" | tr -d ':[:space:]' | tr 'A-F' 'a-f')
-          SIGNERS=$(grep -o '^Signer #[0-9]*' certs.txt | sort -u | wc -l)
-          if [ "$SIGNERS" != "1" ] || [ -z "$ACTUAL" ] || [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::$APK is not signed with the Mobile production key alone (got $ACTUAL)."
+          if [ "$COUNT" != "1" ] || [ "$DIGESTS" != "$EXPECTED" ]; then
+            echo "::error::$APK is not signed with the Mobile production key alone (distinct certificates: $COUNT; got: $(echo $DIGESTS))."
             exit 1
           fi
+          echo "Signed with the Mobile production certificate $DIGESTS."
           ( cd dist && sha256sum "$APK_NAME" > "$APK_NAME.sha256" )
           cat "dist/$APK_NAME.sha256"
 
