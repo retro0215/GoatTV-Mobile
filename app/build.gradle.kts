@@ -1,4 +1,5 @@
 import java.io.ByteArrayOutputStream
+import java.util.Base64
 import java.util.Properties
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
@@ -18,6 +19,29 @@ val packagedLocaleQualifiers: Set<String> = run {
     raw.mapNotNull { entry ->
         if ((entry["packaged"] as? Boolean) == true) entry["resourceQualifier"] as? String else null
     }.toSet()
+}
+
+// Why a Supabase key must not be built into the APK, or null when it may be. Anyone can read the key
+// out of an APK, so only a publishable key or a legacy anon key (role "anon") is allowed; a secret
+// key (sb_secret_) or a legacy service_role key bypasses Row Level Security. Empty is allowed here:
+// that build simply shows no promotions, and the release workflow requires a key separately.
+// Mirrors tools/supabase/check_supabase_key.py (tests: tools/supabase/test_check_supabase_key.py).
+// The result never contains the key or any part of it.
+fun supabaseKeyProblem(key: String): String? {
+    if (key.isEmpty() || key.startsWith("sb_publishable_")) return null
+    if (key.startsWith("sb_secret_")) return "is a secret key (sb_secret_), which bypasses Row Level Security"
+    val parts = key.split('.')
+    if (parts.size != 3) return "is neither a publishable key (sb_publishable_) nor a legacy anon key"
+    val role = runCatching {
+        val claims = String(Base64.getUrlDecoder().decode(parts[1]), Charsets.UTF_8)
+        (groovy.json.JsonSlurper().parseText(claims) as? Map<*, *>)?.get("role") as? String
+    }.getOrNull()
+    return when (role) {
+        "anon" -> null
+        "service_role" -> "is a legacy service_role key, which bypasses Row Level Security"
+        null -> "looks like a legacy key, but its role cannot be read"
+        else -> "is a legacy key whose role is not anon"
+    }
 }
 
 plugins {
@@ -127,6 +151,14 @@ android {
             ?: localProperties.getProperty("SUPABASE_ANON_KEY")
             ?: localProperties.getProperty("supabaseAnonKey")
             ?: ""
+        // This key ships inside every APK, so it must be one Row Level Security limits.
+        supabaseKeyProblem(supabaseAnonKey)?.let { problem ->
+            throw GradleException(
+                "SUPABASE_ANON_KEY $problem. Only a publishable key (sb_publishable_) or a legacy anon " +
+                    "key may be built into the APK; fix the value in the environment, gradle properties " +
+                    "or local.properties. The key itself is not printed.",
+            )
+        }
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseAnonKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
         buildConfigField("String", "MOBILE_RELEASE_REPO", "\"$mobileReleaseRepo\"")
