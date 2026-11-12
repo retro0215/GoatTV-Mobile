@@ -25,6 +25,9 @@ plugins {
     // Kotlin is provided by AGP 9's built-in Kotlin support; this plugin pins the Compose compiler
     // to the same version the TV app and core use.
     alias(libs.plugins.compose.compiler)
+    // Generates the serializers for @Serializable classes (Home Promotions' Supabase rows). Without
+    // it every decode fails at runtime with "Serializer for class ... not found".
+    alias(libs.plugins.kotlin.serialization)
     // Consumes :baselineprofile's recording and packages it as baseline.prof.
     alias(libs.plugins.baselineprofile)
 }
