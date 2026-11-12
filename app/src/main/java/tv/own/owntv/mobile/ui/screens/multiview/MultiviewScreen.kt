@@ -565,15 +565,22 @@ private fun BoxScope.EngineTile(session: MultiviewSession, slot: Int, channelId:
  * phone has very few, and one that gets none shows nothing while its sound plays on. A TextureView
  * is drawn by the GPU like any other view, so five can play at once. Full screen keeps its
  * SurfaceView. Keyed on the engine's surface generation, which a released 4K decoder bumps.
+ *
+ * The view is sized to the video's own shape and centred, with black bars filling the rest of the
+ * tile ([MultiviewGridMath.fitVideo]); a TextureView scales whatever frame it gets to its bounds, so
+ * filling the tile stretched the picture. Only the view's size follows the video — the TextureView,
+ * its Surface and the decoder behind it are not rebuilt when the aspect arrives or the tile resizes.
  */
 @UnstableApi
 @Composable
 private fun TileSurface(engine: LivePreviewEngine, modifier: Modifier = Modifier) {
     val surfaceGeneration by engine.surfaceGeneration.collectAsStateWithLifecycle()
-    Box(modifier.background(Color.Black)) {
+    val aspect by engine.videoAspect.collectAsStateWithLifecycle()
+    BoxWithConstraints(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+        val picture = MultiviewGridMath.fitVideo(maxWidth.value, maxHeight.value, aspect)
         key(surfaceGeneration) {
             AndroidView(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.size(picture.width.dp, picture.height.dp),
                 factory = { ctx ->
                     TextureView(ctx).apply {
                         // The Surface is ours to make and release: leaking one keeps a decoder alive.
