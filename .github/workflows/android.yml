@@ -31,6 +31,11 @@ name: Android CI
 #   MOBILE_CERT_SHA256       the certificate's SHA-256 fingerprint, lowercase hex without colons.
 #                            Every APK is checked against it, so a wrong keystore fails the run
 #                            instead of shipping an APK that cannot update anyone.
+#   SUPABASE_URL             the Supabase project URL Home Promotions read from (secret)
+#   SUPABASE_ANON_KEY        that project's public anon key (secret). It ships inside the APK by
+#                            design, but the repository is public, so it lives here, never in code.
+#                            Release builds fail without these two: an APK built without them shows
+#                            no promotions and says nothing about it.
 # Optional secrets, as before: OWNTV_EDGE_MASTER / OWNTV_EDGE_KEY for the metadata service.
 on:
   push:
@@ -293,12 +298,23 @@ jobs:
           MOBILE_KEYSTORE_PASSWORD: ${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
           MOBILE_KEY_ALIAS: ${{ secrets.MOBILE_KEY_ALIAS }}
           MOBILE_KEY_PASSWORD: ${{ secrets.MOBILE_KEY_PASSWORD }}
+          # Read by app/build.gradle.kts into BuildConfig for Home Promotions. GitHub masks both.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_URL:-}" ] || { echo "::error::The SUPABASE_URL secret is not set."; exit 1; }
+          [ -n "${SUPABASE_ANON_KEY:-}" ] || { echo "::error::The SUPABASE_ANON_KEY secret is not set."; exit 1; }
+          case "$SUPABASE_URL" in https://*) ;; *) echo "::error::SUPABASE_URL must be an https:// URL."; exit 1 ;; esac
           chmod +x ./gradlew
           # verifyMobileRelease (app/build.gradle.kts) refuses to run without signing, a version and
           # the release repository, so this cannot quietly produce an unsigned APK.
           ./gradlew ":app:assemble${{ matrix.flavor }}StandardRelease" --stacktrace
           SRC=$(ls app/build/outputs/apk/${{ matrix.id }}Standard/release/*.apk | head -n1)
+          # The configuration must have reached the APK itself. grep -q prints nothing.
+          unzip -p "$SRC" 'classes*.dex' > "$RUNNER_TEMP/release.dex"
+          grep -aqF "$SUPABASE_URL" "$RUNNER_TEMP/release.dex" \
+            || { echo "::error::The Supabase URL is missing from $SRC; Home Promotions would never load."; exit 1; }
           mkdir -p dist
           cp "$SRC" "dist/$APK_NAME"
 
