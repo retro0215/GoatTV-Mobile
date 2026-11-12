@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import tv.own.owntv.core.database.entity.MovieEntity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -865,6 +867,7 @@ private fun MobileHomePromotionsSection(
     promotions: List<tv.own.owntv.mobile.promotions.HomePromotion>,
 ) {
     val promo = promotions.firstOrNull() ?: return
+    val windowHeight = LocalConfiguration.current.screenHeightDp.dp
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -874,15 +877,17 @@ private fun MobileHomePromotionsSection(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(MobileDimens.GapMedium)) {
             if (!promo.bannerUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = promo.bannerUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(16f / 9f)
-                        .clip(MobileCardShape),
-                )
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    AsyncImage(
+                        model = promo.bannerUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .width(promoBannerWidth(maxWidth, windowHeight))
+                            .aspectRatio(PromoBannerAspect)
+                            .clip(MobileCardShape),
+                    )
+                }
                 Spacer(Modifier.height(MobileDimens.GapMedium))
             }
             Text(
@@ -959,6 +964,20 @@ private fun HomeSkeleton(modifier: Modifier = Modifier) {
 }
 
 /** The route this screen answers a "scroll back to the top" tap for. */
+/** Promotion artwork is drawn 16:9, the shape the admin panel's banners are made in. */
+internal const val PromoBannerAspect = 16f / 9f
+
+/** The most of the window's height the banner artwork may take, so rows below stay in view. */
+internal const val PromoBannerMaxHeightFraction = 0.35f
+
+/**
+ * The banner's width: the full width on a phone held upright, but never so wide that its 16:9
+ * height passes [PromoBannerMaxHeightFraction] of the window — in landscape a full-width banner
+ * filled the whole first screen. Narrowing keeps the artwork's proportions; nothing stretches.
+ */
+internal fun promoBannerWidth(availableWidth: Dp, windowHeight: Dp): Dp =
+    min(availableWidth, windowHeight * PromoBannerMaxHeightFraction * PromoBannerAspect)
+
 private const val MobileHomeRoute = "home"
 
 private val HeroLogoSize = 120.dp
