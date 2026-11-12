@@ -5,6 +5,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import tv.own.owntv.core.brand.AppIcon
+import tv.own.owntv.mobile.ui.components.BrandIconChoices
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.ui.components.goatLabelRes
 import tv.own.owntv.mobile.ui.components.goatRes
@@ -13,7 +14,7 @@ class GoatAppIconTest {
 
     @Test
     fun goatIconDefinitions_eightIconsExist() {
-        val labels = AppIcon.entries.map { it.goatLabelRes() }
+        val labels = BrandIconChoices.map { it.goatLabelRes() }
         assertEquals(8, labels.size)
         assertEquals(8, labels.distinct().size)
         assertEquals(R.string.goat_icon_1, AppIcon.PETROL.goatLabelRes())
@@ -28,7 +29,7 @@ class GoatAppIconTest {
 
     @Test
     fun goatIconResolution_mapsToDrawableResources() {
-        val drawables = AppIcon.entries.map { it.goatRes() }
+        val drawables = BrandIconChoices.map { it.goatRes() }
         assertEquals(8, drawables.size)
         assertEquals(8, drawables.distinct().size)
         assertEquals(R.drawable.goattv_icon_1, AppIcon.PETROL.goatRes())

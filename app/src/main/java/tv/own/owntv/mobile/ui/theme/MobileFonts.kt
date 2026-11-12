@@ -91,13 +91,24 @@ val AppFontFamily.subtitleFontResource: Int
         AppFontFamily.DANCING_SCRIPT -> R.font.dancing_script_variable
         AppFontFamily.POPPINS -> R.font.poppins_regular
         AppFontFamily.SYSTEM_SANS,
+        AppFontFamily.PLUS_JAKARTA_SANS,
         AppFontFamily.MONOSPACE,
         -> 0
     }
 
+/**
+ * Core 1.0.67 made Plus Jakarta Sans the default and moves a stored System Sans to it once. This app
+ * keeps its own look: Plus Jakarta Sans is not shipped or offered here, and is drawn as System Sans.
+ */
+val AppFontFamily.onMobile: AppFontFamily
+    get() = if (this == AppFontFamily.PLUS_JAKARTA_SANS) AppFontFamily.SYSTEM_SANS else this
+
+/** The font choices the Mobile pickers list: core's families without Plus Jakarta Sans. */
+val MobileFontChoices: List<AppFontFamily> = AppFontFamily.entries.filter { it != AppFontFamily.PLUS_JAKARTA_SANS }
+
 fun AppFontFamily.asComposeFamily(): FontFamily = when (this) {
     AppFontFamily.LORA -> LoraFamily
-    AppFontFamily.SYSTEM_SANS -> FontFamily.SansSerif
+    AppFontFamily.SYSTEM_SANS, AppFontFamily.PLUS_JAKARTA_SANS -> FontFamily.SansSerif
     AppFontFamily.MONOSPACE -> JetBrainsMonoFamily
     AppFontFamily.PLAYFAIR_DISPLAY -> PlayfairDisplayFamily
     AppFontFamily.DANCING_SCRIPT -> DancingScriptFamily

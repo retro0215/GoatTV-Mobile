@@ -9,3 +9,7 @@ class MainActivityBoard : MainActivity()
 class MainActivityPetrol : MainActivity()
 class MainActivityOlive : MainActivity()
 class MainActivityOliveCream : MainActivity()
+
+// Core 1.0.67 added AppIcon.PIXEL, and AppIconSwitcher enables or disables a component for every icon.
+// It is not offered in the picker; it exists so the switcher never names a missing component.
+class MainActivityPixel : MainActivity()

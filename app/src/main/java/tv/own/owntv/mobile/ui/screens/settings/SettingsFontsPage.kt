@@ -16,6 +16,8 @@ import tv.own.owntv.core.theme.UiFontScale
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.ui.components.SettingRow
 import tv.own.owntv.mobile.ui.theme.MobileDimens
+import tv.own.owntv.mobile.ui.theme.MobileFontChoices
+import tv.own.owntv.mobile.ui.theme.onMobile
 
 /**
  * The typefaces and the two sizes: the app's own text, and the text inside popups, which is set
@@ -86,10 +88,10 @@ fun SettingsFontsPage(
         }
 
         settingsSection(R.string.settings_main_interface_font) {
-            AppFontFamily.entries.forEach { family ->
+            MobileFontChoices.forEach { family ->
                 SettingRow(
                     title = stringResource(family.labelRes()),
-                    checked = fonts.mainFamily == family,
+                    checked = fonts.mainFamily.onMobile == family,
                     onCheckedChange = {
                         vm.edit { setFontCustomization(fonts.copy(mainFamily = family)) }
                     },
@@ -98,10 +100,10 @@ fun SettingsFontsPage(
         }
 
         settingsSection(R.string.settings_popup_font) {
-            AppFontFamily.entries.forEach { family ->
+            MobileFontChoices.forEach { family ->
                 SettingRow(
                     title = stringResource(family.labelRes()),
-                    checked = fonts.popupFamily == family,
+                    checked = fonts.popupFamily.onMobile == family,
                     onCheckedChange = {
                         vm.edit { setFontCustomization(fonts.copy(popupFamily = family)) }
                     },

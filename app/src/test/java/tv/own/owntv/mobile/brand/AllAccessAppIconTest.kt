@@ -5,6 +5,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import tv.own.owntv.core.brand.AppIcon
+import tv.own.owntv.mobile.ui.components.BrandIconChoices
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.ui.components.allaccessLabelRes
 import tv.own.owntv.mobile.ui.components.allaccessRes
@@ -15,7 +16,7 @@ class AllAccessAppIconTest {
 
     @Test
     fun allaccessIconDefinitions_eightIconsExist() {
-        val labels = AppIcon.entries.map { it.allaccessLabelRes() }
+        val labels = BrandIconChoices.map { it.allaccessLabelRes() }
         assertEquals(8, labels.size)
         assertEquals(8, labels.distinct().size)
         assertEquals(R.string.allaccess_icon_1, AppIcon.PETROL.allaccessLabelRes())
@@ -30,7 +31,7 @@ class AllAccessAppIconTest {
 
     @Test
     fun allaccessIconResolution_mapsToDrawableResources() {
-        val drawables = AppIcon.entries.map { it.allaccessRes() }
+        val drawables = BrandIconChoices.map { it.allaccessRes() }
         assertEquals(8, drawables.size)
         assertEquals(8, drawables.distinct().size)
         assertEquals(R.drawable.allaccess_icon_1, AppIcon.PETROL.allaccessRes())

@@ -57,13 +57,19 @@ fun rememberAppliedIcon(): AppIcon {
     return remember(context) { AppIconSwitcher.applied(context) }
 }
 
+/**
+ * The eight icon slots each brand offers. Core 1.0.67 added [AppIcon.PIXEL]; it is not a brand choice
+ * and every brand draws it as its Eggshell slot, in case a restored backup or sync selects it.
+ */
+val BrandIconChoices: List<AppIcon> = AppIcon.entries.filter { it != AppIcon.PIXEL }
+
 fun AppIcon.goatRes(): Int = when (this) {
     AppIcon.PETROL -> R.drawable.goattv_icon_1
     AppIcon.SUNFLOWER -> R.drawable.goattv_icon_2
     AppIcon.COBALT -> R.drawable.goattv_icon_3
     AppIcon.TOMATO -> R.drawable.goattv_icon_4
     AppIcon.BOARD -> R.drawable.goattv_icon_5
-    AppIcon.EGGSHELL -> R.drawable.goattv_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.drawable.goattv_icon_6
     AppIcon.OLIVE -> R.drawable.goattv_icon_7
     AppIcon.OLIVE_CREAM -> R.drawable.goattv_icon_8
 }
@@ -74,7 +80,7 @@ fun AppIcon.goatLabelRes(): Int = when (this) {
     AppIcon.COBALT -> R.string.goat_icon_3
     AppIcon.TOMATO -> R.string.goat_icon_4
     AppIcon.BOARD -> R.string.goat_icon_5
-    AppIcon.EGGSHELL -> R.string.goat_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.string.goat_icon_6
     AppIcon.OLIVE -> R.string.goat_icon_7
     AppIcon.OLIVE_CREAM -> R.string.goat_icon_8
 }
@@ -85,7 +91,7 @@ fun AppIcon.allaccessRes(): Int = when (this) {
     AppIcon.COBALT -> R.drawable.allaccess_icon_3
     AppIcon.TOMATO -> R.drawable.allaccess_icon_4
     AppIcon.BOARD -> R.drawable.allaccess_icon_5
-    AppIcon.EGGSHELL -> R.drawable.allaccess_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.drawable.allaccess_icon_6
     AppIcon.OLIVE -> R.drawable.allaccess_icon_7
     AppIcon.OLIVE_CREAM -> R.drawable.allaccess_icon_8
 }
@@ -96,7 +102,7 @@ fun AppIcon.allaccessLabelRes(): Int = when (this) {
     AppIcon.COBALT -> R.string.allaccess_icon_3
     AppIcon.TOMATO -> R.string.allaccess_icon_4
     AppIcon.BOARD -> R.string.allaccess_icon_5
-    AppIcon.EGGSHELL -> R.string.allaccess_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.string.allaccess_icon_6
     AppIcon.OLIVE -> R.string.allaccess_icon_7
     AppIcon.OLIVE_CREAM -> R.string.allaccess_icon_8
 }
@@ -107,7 +113,7 @@ fun AppIcon.fivestarRes(): Int = when (this) {
     AppIcon.COBALT -> R.drawable.fivestar_icon_3
     AppIcon.TOMATO -> R.drawable.fivestar_icon_4
     AppIcon.BOARD -> R.drawable.fivestar_icon_5
-    AppIcon.EGGSHELL -> R.drawable.fivestar_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.drawable.fivestar_icon_6
     AppIcon.OLIVE -> R.drawable.fivestar_icon_7
     AppIcon.OLIVE_CREAM -> R.drawable.fivestar_icon_8
 }
@@ -118,7 +124,7 @@ fun AppIcon.fivestarLabelRes(): Int = when (this) {
     AppIcon.COBALT -> R.string.fivestar_icon_3
     AppIcon.TOMATO -> R.string.fivestar_icon_4
     AppIcon.BOARD -> R.string.fivestar_icon_5
-    AppIcon.EGGSHELL -> R.string.fivestar_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.string.fivestar_icon_6
     AppIcon.OLIVE -> R.string.fivestar_icon_7
     AppIcon.OLIVE_CREAM -> R.string.fivestar_icon_8
 }
@@ -129,7 +135,7 @@ fun AppIcon.supremeRes(): Int = when (this) {
     AppIcon.COBALT -> R.drawable.supreme_icon_3
     AppIcon.TOMATO -> R.drawable.supreme_icon_4
     AppIcon.BOARD -> R.drawable.supreme_icon_5
-    AppIcon.EGGSHELL -> R.drawable.supreme_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.drawable.supreme_icon_6
     AppIcon.OLIVE -> R.drawable.supreme_icon_7
     AppIcon.OLIVE_CREAM -> R.drawable.supreme_icon_8
 }
@@ -140,7 +146,7 @@ fun AppIcon.supremeLabelRes(): Int = when (this) {
     AppIcon.COBALT -> R.string.supreme_icon_3
     AppIcon.TOMATO -> R.string.supreme_icon_4
     AppIcon.BOARD -> R.string.supreme_icon_5
-    AppIcon.EGGSHELL -> R.string.supreme_icon_6
+    AppIcon.EGGSHELL, AppIcon.PIXEL -> R.string.supreme_icon_6
     AppIcon.OLIVE -> R.string.supreme_icon_7
     AppIcon.OLIVE_CREAM -> R.string.supreme_icon_8
 }
@@ -272,7 +278,7 @@ fun AppIconPicker(selected: AppIcon, onPick: (AppIcon) -> Unit, modifier: Modifi
     val shape = RoundedCornerShape(16.dp)
     val brand = BrandConfig.currentBrand
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        AppIcon.entries.chunked(4).forEachIndexed { row, icons ->
+        BrandIconChoices.chunked(4).forEachIndexed { row, icons ->
             if (row > 0) Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 icons.forEach { icon ->

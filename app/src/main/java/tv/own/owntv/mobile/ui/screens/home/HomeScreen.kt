@@ -264,6 +264,8 @@ fun HomeScreen(
                         onOpenChannel = onOpenChannel,
                         onMenu = { menuFor = it },
                     )
+                    // Filtered out by hasContent; listed only so the when stays exhaustive.
+                    HomeRow.FAVORITE_MOVIES, HomeRow.FAVORITE_SERIES -> Unit
                     HomeRow.CONTINUE_MOVIES -> ContinueRow(
                         title = stringResource(R.string.home_row_continue_movies),
                         items = state.continueMovies,
@@ -321,7 +323,13 @@ private fun HomeFeed.hasContent(row: HomeRow): Boolean = when (row) {
     }
     HomeRow.CONTINUE_MOVIES -> continueMovies.isNotEmpty()
     HomeRow.CONTINUE_SERIES -> continueSeries.isNotEmpty()
+    // Core's favourite film and series rows have no Mobile drawing yet: never shown.
+    HomeRow.FAVORITE_MOVIES, HomeRow.FAVORITE_SERIES -> false
 }
+
+/** Rows this Home draws. Core 1.0.67 added favourite film/series rows that the Mobile UI does not draw. */
+internal val HomeRow.shownOnMobile: Boolean
+    get() = this != HomeRow.FAVORITE_MOVIES && this != HomeRow.FAVORITE_SERIES
 
 /**
  * The hero: one card per thing worth carrying on with, each as wide as the screen and snapping into

@@ -217,6 +217,25 @@
             </intent-filter>
         </activity>
 
+        <!-- Core's AppIcon.PIXEL: not offered by the brand icon picker. Present (disabled, the brand's
+             Eggshell icon) so AppIconSwitcher never enables or disables a component that does not exist. -->
+        <activity
+            android:name=".MainActivityPixel"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/owntv_icon_eggshell"
+            android:launchMode="singleTop"
+            android:roundIcon="@mipmap/owntv_icon_eggshell"
+            android:supportsPictureInPicture="true"
+            android:theme="@style/Theme.OwnTVMobile.Starting.Eggshell"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <!-- How the Cast SDK finds its configuration. It is instantiated reflectively by name, which
              is why the class is kept out of R8's reach in proguard-rules.pro. -->
         <meta-data
