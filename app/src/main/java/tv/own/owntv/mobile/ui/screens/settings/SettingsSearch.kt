@@ -3,6 +3,7 @@ package tv.own.owntv.mobile.ui.screens.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
+import tv.own.owntv.mobile.brand.brandedStringResource
 import tv.own.owntv.mobile.R
 
 /**
@@ -190,14 +191,14 @@ fun rememberSettingsSearchEntries(): List<SettingsSearchEntry> {
     )
 
     val leaves = SettingsLeaf.entries.map {
-        SettingsSearchEntry(it.group, it, stringResource(it.titleRes), stringResource(it.keywordsRes))
+        SettingsSearchEntry(it.group, it, stringResource(it.titleRes), brandedStringResource(it.keywordsRes))
     }
     val resolved = leaves + rows().map {
         SettingsSearchEntry(
             it.group,
             it.leaf,
             stringResource(it.titleRes),
-            stringResource(it.keywordsRes),
+            brandedStringResource(it.keywordsRes),
         )
     }
     return remember(resolved) { resolved }

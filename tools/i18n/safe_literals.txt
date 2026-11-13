@@ -29,6 +29,7 @@
 1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	5star-ultra-mobile-v
 1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	AllAccess-Mobile
 1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	GoatTV-Mobile
+1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	OwnTV
 1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	Supreme-TV-Mobile
 1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	allaccess-mobile-v
 1	protocol	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	goattv-mobile-v

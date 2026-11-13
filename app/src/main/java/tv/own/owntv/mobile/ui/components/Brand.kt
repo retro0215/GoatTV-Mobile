@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import tv.own.owntv.core.brand.AppIcon
 import tv.own.owntv.core.brand.AppIconSwitcher
+import tv.own.owntv.mobile.brand.brandedStringResource
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.brand.BrandConfig
 import tv.own.owntv.mobile.brand.MobileBrand
@@ -333,7 +334,7 @@ fun AppIconSettingsDialog(chosen: AppIcon, onPick: (AppIcon) -> Unit, onDismiss:
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    stringResource(R.string.settings_app_icon_summary),
+                    brandedStringResource(R.string.settings_app_icon_summary),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
