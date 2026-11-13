@@ -314,3 +314,17 @@ object SportsCountedGames {
     fun same(a: List<SportsEvent>, b: List<SportsEvent>): Boolean =
         a.size == b.size && a.zip(b).all { (x, y) -> x.id == y.id && x.channels == y.channels }
 }
+
+/**
+ * The game clock a live card shows (pure): the backend's own status detail for a live game, e.g.
+ * "7:16 - 1st" or "Halftime", trimmed — or nothing. The app never makes up or runs a clock itself:
+ * it changes when the backend's does, with each refresh.
+ */
+object SportsLiveClock {
+    fun text(event: SportsEvent): String? =
+        event.statusDetail?.trim()?.takeIf { event.status == SportsEventStatus.LIVE && it.isNotEmpty() }
+
+    /** The newest copy of [opened] among [shown] (an open details panel follows refreshes), or [opened]. */
+    fun latest(opened: SportsEvent, shown: List<SportsEvent>): SportsEvent =
+        shown.firstOrNull { it.id == opened.id } ?: opened
+}

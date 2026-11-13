@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.combine
 import org.koin.androidx.compose.koinViewModel
+import tv.own.owntv.core.theme.GlassSurface
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.sports.live.SportsAccessIssue
 import tv.own.owntv.mobile.sports.live.SportsChannelOffer
@@ -76,6 +78,7 @@ import tv.own.owntv.mobile.ui.nav.MobileDestination
 import tv.own.owntv.mobile.ui.screens.ObeyScrollToTop
 import tv.own.owntv.mobile.ui.screens.sports.SportsScreen
 import tv.own.owntv.mobile.ui.theme.MobileDimens
+import tv.own.owntv.mobile.ui.theme.glassSurface
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneId
@@ -263,7 +266,11 @@ private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String
         }
     }
 
-    details?.let { game -> GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onDismiss = { details = null }) }
+    details?.let { opened ->
+        // The open panel follows the game: its clock and score update with each refresh.
+        val game = SportsLiveClock.latest(opened, (state as? SportsTodayUiState.Content)?.sections?.flatMap { it.games }.orEmpty())
+        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onDismiss = { details = null })
+    }
 }
 
 @Composable
@@ -310,7 +317,10 @@ private fun SchedulePane(
         }
     }
 
-    details?.let { game -> GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onDismiss = { details = null }) }
+    details?.let { opened ->
+        val game = SportsLiveClock.latest(opened, (state as? SportsScheduleUiState.Content)?.games.orEmpty())
+        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onDismiss = { details = null })
+    }
 }
 
 @Composable
@@ -403,7 +413,10 @@ private fun LeagueGames(vm: SportsHubViewModel, league: SportsLeague, onBack: ()
         }
     }
 
-    details?.let { game -> GameDetailsSheet(game, league, vm, profileId, onDismiss = { details = null }) }
+    details?.let { opened ->
+        val game = SportsLiveClock.latest(opened, (state as? SportsLeagueGamesUiState.Content)?.games.orEmpty())
+        GameDetailsSheet(game, league, vm, profileId, onDismiss = { details = null })
+    }
 }
 
 /** Today / Tomorrow / Yesterday, or the device-formatted date (e.g. "Sun, Nov 15"). */
@@ -579,17 +592,32 @@ private fun TeamLogo(team: SportsTeam) {
 @Composable
 private fun StatusLabel(event: SportsEvent) {
     when (event.status) {
-        SportsEventStatus.LIVE -> Text(
-            text = stringResource(R.string.live_badge_label),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .background(LIVE_RED, RoundedCornerShape(4.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
+        // The badge, then the game clock exactly as the backend reports it ("7:16 - 1st",
+        // "Halftime", "Top 3rd") — nothing when it reports none; never a clock of our own.
+        SportsEventStatus.LIVE -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = stringResource(R.string.live_badge_label),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .background(LIVE_RED, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+            SportsLiveClock.text(event)?.let { clock ->
+                Text(
+                    text = clock,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 160.dp),
+                )
+            }
+        }
         else -> Text(
             text = statusText(event),
             style = MaterialTheme.typography.labelMedium,
@@ -608,7 +636,7 @@ private fun statusText(event: SportsEvent): String = when (event.status) {
     SportsEventStatus.POSTPONED -> stringResource(R.string.sports_status_postponed)
     SportsEventStatus.CANCELED -> stringResource(R.string.sports_status_canceled)
     SportsEventStatus.DELAYED -> event.statusDetail ?: stringResource(R.string.sports_status_delayed)
-    SportsEventStatus.LIVE -> event.statusDetail.orEmpty()
+    SportsEventStatus.LIVE -> SportsLiveClock.text(event).orEmpty()
     SportsEventStatus.SCHEDULED, SportsEventStatus.UNKNOWN -> startLabel(event.startTimeMs)
 }
 
@@ -654,16 +682,21 @@ private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: Spor
         value = vm.channelsFor(event)
     }
     MobileBottomSheet(onDismissRequest = onDismiss, title = title) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = MobileDimens.ScreenPaddingH, vertical = MobileDimens.GapSmall),
-            verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
-        ) {
+        // The sheet is frosted glass over whatever is behind it; the details sit on the theme's card
+        // glass inside it — the darker, unfrosted layer cards use — so scores and names stay legible
+        // over a busy wallpaper or a live preview.
+        DetailsPanel {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
-                Text(leagueLabel(event, league), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    leagueLabel(event, league),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 StatusLabel(event)
-            }
-            if (event.status != SportsEventStatus.SCHEDULED && event.status != SportsEventStatus.UNKNOWN) {
-                Text(startLabel(event.startTimeMs), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val away = event.away
             val home = event.home
@@ -671,29 +704,48 @@ private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: Spor
                 TeamLine(away, event)
                 TeamLine(home, event)
             }
-            event.venueName?.let { DetailLine(stringResource(R.string.sports_details_venue), it) }
-            val networks = event.broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }.map { it.name }.distinct()
-            if (networks.isNotEmpty()) DetailLine(stringResource(R.string.sports_details_on_tv), networks.joinToString())
-            if (event.channels.isNotEmpty()) {
-                val o = offer
-                val yours = when {
-                    o == null -> stringResource(R.string.sports_details_checking)
-                    o.issue == SportsAccessIssue.SEVERAL_PLAYLISTS -> stringResource(R.string.sports_details_choose_playlist)
-                    o.issue == SportsAccessIssue.NO_ELIGIBLE_PLAYLIST -> stringResource(R.string.sports_details_needs_xtream)
-                    o.issue != null || o.channels.isEmpty() -> stringResource(R.string.sports_details_none_allowed)
-                    else -> o.channels.joinToString { it.name }
+            if (event.status != SportsEventStatus.SCHEDULED && event.status != SportsEventStatus.UNKNOWN) {
+                Text(startLabel(event.startTimeMs), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        val networks = event.broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }.map { it.name }.distinct()
+        if (event.venueName != null || networks.isNotEmpty() || event.channels.isNotEmpty()) {
+            DetailsPanel {
+                event.venueName?.let { DetailLine(stringResource(R.string.sports_details_venue), it) }
+                if (networks.isNotEmpty()) DetailLine(stringResource(R.string.sports_details_on_tv), networks.joinToString())
+                if (event.channels.isNotEmpty()) {
+                    val o = offer
+                    val yours = when {
+                        o == null -> stringResource(R.string.sports_details_checking)
+                        o.issue == SportsAccessIssue.SEVERAL_PLAYLISTS -> stringResource(R.string.sports_details_choose_playlist)
+                        o.issue == SportsAccessIssue.NO_ELIGIBLE_PLAYLIST -> stringResource(R.string.sports_details_needs_xtream)
+                        o.issue != null || o.channels.isEmpty() -> stringResource(R.string.sports_details_none_allowed)
+                        else -> o.channels.joinToString { it.name }
+                    }
+                    DetailLine(stringResource(R.string.sports_details_your_channels), yours)
                 }
-                DetailLine(stringResource(R.string.sports_details_your_channels), yours)
             }
         }
     }
 }
 
 @Composable
+private fun DetailsPanel(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .glassSurface(GlassSurface.CARDS, RoundedCornerShape(MobileDimens.CardCorner))
+            .padding(horizontal = MobileDimens.GapMedium, vertical = MobileDimens.GapSmall + MobileDimens.GapTiny),
+        verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
+        content = content,
+    )
+}
+
+@Composable
 private fun DetailLine(label: String, value: String) {
-    Column {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
