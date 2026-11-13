@@ -1,0 +1,7 @@
+{
+  "leagues": [
+    {"id": "nfl", "name": "NFL", "shortName": "NFL", "order": 1, "sport": "football", "participantKind": "team", "competitionType": null, "region": null, "gender": null},
+    {"id": "epl", "name": "Premier League", "shortName": "EPL", "order": 40, "sport": "soccer", "participantKind": "team", "competitionType": "league", "region": "england", "gender": "men"},
+    {"id": "ufc", "name": "UFC", "shortName": "UFC", "order": 30, "sport": "mma", "participantKind": "athlete", "competitionType": null, "region": null, "gender": null}
+  ]
+}
