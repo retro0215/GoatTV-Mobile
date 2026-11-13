@@ -1,7 +1,10 @@
 package tv.own.owntv.mobile.di
 
 import org.koin.dsl.module
+import tv.own.owntv.mobile.sports.live.MobileSportsChannelLookup
 import tv.own.owntv.mobile.sports.live.SportsApiClient
+import tv.own.owntv.mobile.sports.live.SportsChannelLookup
+import tv.own.owntv.mobile.sports.live.SportsChannelResolver
 import tv.own.owntv.mobile.sports.live.SportsLiveStore
 import tv.own.owntv.mobile.sports.live.asSportsApi
 
@@ -16,4 +19,8 @@ import tv.own.owntv.mobile.sports.live.asSportsApi
 val sportsModule = module {
     single { SportsApiClient(sharedClient = get()) }
     single { SportsLiveStore(api = get<SportsApiClient>().asSportsApi()) }
+    // Channel identity and playlist isolation (Phase 2A). Nothing customer-facing resolves through it
+    // until the adult and hidden-channel rules sit on top (Phase 2B).
+    single<SportsChannelLookup> { MobileSportsChannelLookup(settings = get(), sourceDao = get(), channelDao = get()) }
+    single { SportsChannelResolver(get()) }
 }
