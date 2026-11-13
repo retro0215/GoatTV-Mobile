@@ -784,6 +784,10 @@
 1	regex	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	[^A-Z0-9 ]
 1	regex	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsModel.kt	\\s+
 1	uri	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/SportsScreen.kt	sports
+1	protocol	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/hub/SportsHubScreen.kt	RADIO
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/hub/SportsHubScreen.kt	h:${section.group}
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/hub/SportsHubScreen.kt	r:
+1	technical	app/src/main/java/tv/own/owntv/mobile/ui/screens/sports/hub/SportsHubScreen.kt	stale
 15	empty	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	\0
 1	file-path	app/src/main/java/tv/own/owntv/mobile/ui/setup/AddSourceForm.kt	playlists
 1	mime	app/src/main/java/tv/own/owntv/mobile/ui/setup/SetupFiles.kt	*/*

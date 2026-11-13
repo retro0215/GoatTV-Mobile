@@ -35,7 +35,7 @@ import tv.own.owntv.mobile.ui.screens.library.LibraryTab
 import tv.own.owntv.mobile.ui.screens.live.ChannelDetailScreen
 import tv.own.owntv.mobile.ui.screens.live.LiveScreen
 import tv.own.owntv.mobile.ui.screens.search.SearchScreen
-import tv.own.owntv.mobile.ui.screens.sports.SportsScreen
+import tv.own.owntv.mobile.ui.screens.sports.hub.SportsHubScreen
 import tv.own.owntv.mobile.ui.screens.settings.SettingsGroup
 import tv.own.owntv.mobile.ui.screens.settings.SettingsGroupPage
 import tv.own.owntv.mobile.ui.screens.settings.SettingsLeaf
@@ -130,7 +130,8 @@ fun MobileNavHost(
                     )
                     // Back from the player or from Multiview pops to this entry, so Sports comes back
                     // with its view model — selection and rows — and its saved scroll position.
-                    MobileDestination.SPORTS -> SportsScreen(
+                    // The hub hosts the Sports screen the app already had, as its Channels tab.
+                    MobileDestination.SPORTS -> SportsHubScreen(
                         scrollToTop = scrollToTop,
                         onOpenPlayer = { navController.navigate(PLAYER_ROUTE) },
                         onOpenMultiview = { openPicker ->

@@ -80,6 +80,17 @@ enum class SportsAccessIssue {
     PROFILE_CHANGED,
 }
 
+/** [SportsChannelAccess.offerAll]: every game's offer from one snapshot of [profileId]. */
+data class SportsChannelOffers(
+    val profileId: Long?,
+    /** Games that list channels; a game absent here has none to offer. */
+    val byEventId: Map<String, SportsChannelOffer>,
+    val issue: SportsAccessIssue? = null,
+) {
+    /** Channels this profile may use for [eventId] (0 when the game lists none or all were filtered). */
+    fun countFor(eventId: String): Int = byEventId[eventId]?.channels?.size ?: 0
+}
+
 data class SportsChannelOffer(
     /** Allowed channels in backend rank order; empty when none survive. */
     val channels: List<VisibleSportsChannel>,
@@ -118,6 +129,32 @@ class SportsChannelAccess(private val data: SportsAccessData) {
         return decision.playable.firstOrNull { it.first.backendChannelId == chosen.backendChannelId }?.second
     }
 
+    /**
+     * [offer] for many games at once — a screen of cards — from ONE snapshot of the active profile, so
+     * every count on screen answers for the same profile and the same rules. Keyed by event id.
+     */
+    suspend fun offerAll(events: List<SportsEvent>): SportsChannelOffers {
+        val snapshot = data.snapshot() ?: return SportsChannelOffers(null, emptyMap(), SportsAccessIssue.NO_PROFILE)
+        val source = when (val p = snapshot.playlist) {
+            is SportsPlaylistSelection.Choice.Selected -> p.source
+            is SportsPlaylistSelection.Choice.Ambiguous -> return SportsChannelOffers(snapshot.profileId, emptyMap(), SportsAccessIssue.SEVERAL_PLAYLISTS)
+            SportsPlaylistSelection.Choice.None -> return SportsChannelOffers(snapshot.profileId, emptyMap(), SportsAccessIssue.NO_ELIGIBLE_PLAYLIST)
+        }
+        val adult = adultCheck(snapshot.profileId)
+        val resolver = SportsChannelResolver(SnapshotLookup(source, data))
+        val byEvent = LinkedHashMap<String, SportsChannelOffer>(events.size)
+        for (event in events) {
+            if (event.channels.isEmpty()) continue
+            val resolved = resolver.resolve(event.channels).accepted
+            val allowed = SportsChannelVisibility.filter(resolved, snapshot.rules, adult)
+            byEvent[event.id] = SportsChannelOffer(allowed.map { it.first }, snapshot.profileId, filteredOut = resolved.size - allowed.size)
+        }
+        if (data.activeProfileId() != snapshot.profileId) {
+            return SportsChannelOffers(snapshot.profileId, emptyMap(), SportsAccessIssue.PROFILE_CHANGED)
+        }
+        return SportsChannelOffers(snapshot.profileId, byEvent)
+    }
+
     private class Decision(val offer: SportsChannelOffer, val playable: List<Pair<VisibleSportsChannel, ChannelEntity>>)
 
     private suspend fun decide(refs: List<SportsChannelRef>): Decision {
@@ -130,9 +167,7 @@ class SportsChannelAccess(private val data: SportsAccessData) {
                 return Decision(SportsChannelOffer.none(SportsAccessIssue.NO_ELIGIBLE_PLAYLIST, snapshot.profileId), emptyList())
         }
         val resolved = SportsChannelResolver(SnapshotLookup(source, data)).resolve(refs).accepted
-        val allowed = SportsChannelVisibility.filter(resolved, snapshot.rules) { categoryId ->
-            data.adultAllowed(snapshot.profileId, categoryId)
-        }
+        val allowed = SportsChannelVisibility.filter(resolved, snapshot.rules, adultCheck(snapshot.profileId))
         // A profile switch while this ran: every answer above belongs to the old profile.
         if (data.activeProfileId() != snapshot.profileId) {
             return Decision(SportsChannelOffer.none(SportsAccessIssue.PROFILE_CHANGED, snapshot.profileId), emptyList())
@@ -141,6 +176,12 @@ class SportsChannelAccess(private val data: SportsAccessData) {
             SportsChannelOffer(allowed.map { it.first }, snapshot.profileId, filteredOut = resolved.size - allowed.size),
             allowed,
         )
+    }
+
+    /** The play-time adult check, asked once per category within one decision. */
+    private fun adultCheck(profileId: Long): suspend (Long?) -> Boolean {
+        val answers = HashMap<Long?, Boolean>()
+        return { categoryId -> answers.getOrPut(categoryId) { data.adultAllowed(profileId, categoryId) } }
     }
 
     /** The resolver's lookup, pinned to the snapshot's playlist so it cannot drift mid-decision. */

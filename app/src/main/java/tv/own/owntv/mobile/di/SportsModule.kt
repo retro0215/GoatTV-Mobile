@@ -1,5 +1,6 @@
 package tv.own.owntv.mobile.di
 
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import tv.own.owntv.mobile.sports.live.MobileSportsAccessData
 import tv.own.owntv.mobile.sports.live.SportsAccessData
@@ -7,6 +8,7 @@ import tv.own.owntv.mobile.sports.live.SportsApiClient
 import tv.own.owntv.mobile.sports.live.SportsChannelAccess
 import tv.own.owntv.mobile.sports.live.SportsLiveStore
 import tv.own.owntv.mobile.sports.live.asSportsApi
+import tv.own.owntv.mobile.ui.screens.sports.hub.SportsHubViewModel
 
 /**
  * GoatTV Sports: the backend client, the in-memory store and channel access.
@@ -34,4 +36,6 @@ val sportsModule = module {
         )
     }
     single { SportsChannelAccess(get()) }
+    // Live & Today: reads the store and asks SportsChannelAccess for counts; plays nothing.
+    viewModelOf(::SportsHubViewModel)
 }

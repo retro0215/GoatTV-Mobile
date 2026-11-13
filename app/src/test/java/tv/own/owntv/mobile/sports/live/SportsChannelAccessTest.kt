@@ -52,6 +52,7 @@ class SportsChannelAccessTest {
     private class Profile(val id: Long, var playlist: Choice, var rules: SportsVisibilityRules, val adultBlocked: MutableSet<Long> = mutableSetOf())
 
     private inner class World : SportsAccessData {
+        var snapshots = 0
         val profiles = mutableMapOf<Long, Profile>()
         var active: Long = -1
         val rows = mutableListOf(espn, espnFhd, espn4k, adultFeed, inHiddenFolder, bEspn)
@@ -59,6 +60,7 @@ class SportsChannelAccessTest {
         val lookedUpSources = mutableListOf<Long>()
 
         override suspend fun snapshot(): SportsAccessSnapshot? {
+            snapshots++
             val p = profiles[active] ?: return null
             val snap = SportsAccessSnapshot(p.id, p.playlist, p.rules)
             switchDuringDecision?.let { active = it; switchDuringDecision = null }
@@ -263,5 +265,40 @@ class SportsChannelAccessTest {
         }
         // The playable row (with its stream URL) only comes out of revalidate, at the moment of acting.
         assertNotNull(access.revalidate(game(espn), offer.channels.first())?.streamUrl)
+    }
+
+    // ------------------------------------------------------------------ a screen of cards (offerAll)
+
+    private fun gameWith(id: String, vararg channels: ChannelEntity): SportsEvent =
+        SportsFixtures.parsed(SportsFixtures.event(id, status = "LIVE", channels = JSONArray(channels.mapIndexed { i, c -> JSONObject(ref(c, i)) })))
+
+    @Test
+    fun offerAll_countsEveryGameFromOneSnapshot_afterFiltering() = runBlocking {
+        val kids = world(active = 2)
+        val offers = SportsChannelAccess(kids).offerAll(
+            listOf(gameWith("evt_a", espn, espnFhd), gameWith("evt_b", adultFeed), gameWith("evt_none"), gameWith("evt_c", espn4k)),
+        )
+        assertEquals("one profile read for the whole screen", 1, kids.snapshots)
+        assertEquals(2L, offers.profileId)
+        assertEquals(2, offers.countFor("evt_a"))
+        assertEquals("blocked for this profile: zero", 0, offers.countFor("evt_b"))
+        assertEquals(1, offers.byEventId.getValue("evt_b").filteredOut)
+        assertEquals("a game listing no channels is not looked up", false, offers.byEventId.containsKey("evt_none"))
+        assertEquals(1, offers.countFor("evt_c"))
+    }
+
+    @Test
+    fun offerAll_followsTheActiveProfile_andDiscardsOnASwitch() = runBlocking {
+        val w = world(active = 1)
+        val access = SportsChannelAccess(w)
+        assertEquals(1, access.offerAll(listOf(gameWith("evt_b", adultFeed))).countFor("evt_b"))
+        w.active = 2
+        assertEquals(0, access.offerAll(listOf(gameWith("evt_b", adultFeed))).countFor("evt_b"))
+        w.switchDuringDecision = 1
+        val discarded = access.offerAll(listOf(gameWith("evt_b", adultFeed)))
+        assertEquals(SportsAccessIssue.PROFILE_CHANGED, discarded.issue)
+        assertTrue(discarded.byEventId.isEmpty())
+        adultProfile.playlist = Choice.Ambiguous(2)
+        assertEquals(SportsAccessIssue.SEVERAL_PLAYLISTS, access.offerAll(listOf(gameWith("evt_a", espn))).issue)
     }
 }
