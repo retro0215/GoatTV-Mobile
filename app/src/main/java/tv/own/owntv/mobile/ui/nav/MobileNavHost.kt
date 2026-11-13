@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -255,11 +256,21 @@ fun MobileNavHost(
             // ways of saying "keep it playing". Back has its own path and stops the stream, so it
             // never reaches here and never raises the flag.
             val miniRequested = LocalMiniRequested.current
+            // Opened from the Live TV tab itself (its preview or its highlighted tile): Back returns to
+            // that preview, which shows this stream, so Back leaves it playing there. Read once — the
+            // entry under this one does not change while the player is open.
+            val backLandsOnLivePreview = remember {
+                navController.previousBackStackEntry?.destination?.route == MobileDestination.LIVE.route
+            }
             PlayerScreen(
                 onExit = {
                     miniRequested.value = true
                     navController.leavePlayerStillPlaying()
                 },
+                backLandsOnLivePreview = backLandsOnLivePreview,
+                // A plain pop: no mini player request, no walking past channel screens — the entry
+                // under this one is the Live TV tab, and its preview takes the picture back.
+                onBackToLivePreview = { navController.popBackStack() },
                 // The grid takes over from this player, which leaves the back stack with it: Back from
                 // the grid must not land on a stopped player.
                 onOpenMultiview = {
