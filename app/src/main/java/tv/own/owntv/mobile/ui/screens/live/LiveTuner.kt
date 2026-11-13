@@ -451,7 +451,32 @@ class LiveTuner(
     /** The wall-clock instant actually on screen while an archive plays. */
     val watchingWallMs: StateFlow<Long?> = timeshift.watchingWallMs
 
-    private var loadedId: Long? = null
+    /** The channel a stream was opened for, apart from the one selected — see [LivePlaybackState]. */
+    private val playback = LivePlaybackState()
+
+    private var loadedId: Long?
+        get() = playback.openedId
+        set(value) {
+            playback.openedId = value
+        }
+
+    /**
+     * Whether a stream is playing (or connecting) for the selection. False after [stopPlayback] kept
+     * the channel but stopped its engines — the state that left the Live TV preview black.
+     */
+    val playbackActive: StateFlow<Boolean> = playback.active
+
+    /**
+     * Start the selected channel again after [stopPlayback] kept it — Live TV coming back into view
+     * after another tab or Multiview had it stopped. The same channel and the same list around it;
+     * nothing happens while a stream is playing or still connecting, so it can be asked any number of
+     * times without opening a second connection. True when it started one.
+     */
+    fun resumeSelected(): Boolean {
+        val target = playback.resumeTarget(_channel.value?.id) ?: return false
+        tune(target, _zapList.value)
+        return true
+    }
 
     /** The programme a replay is showing, so ending a cast can start the same one again rather than
      *  dropping the user at the live edge. Null whenever a replay is not what is playing. */
@@ -499,7 +524,7 @@ class LiveTuner(
         // `hasStream`, not mpv's own: on live-on-ExoPlayer mpv always answers "nothing here", so
         // re-opening the channel you are already watching tore the stream down and rebuilt it —
         // a reconnection and a second of black for a screen you had just come back to.
-        if (loadedId == channelId && hasStream) return
+        if (!playback.shouldOpen(channelId, hasStream)) return
         loadedId = channelId
         // One tune in flight: a newer pick, or a catch-up, cancels this one wherever it has got to.
         live.launch {
@@ -972,7 +997,7 @@ class LiveTuner(
     /** Stop playing playback engines. If [clearChannel] is true, resets channel selection state. */
     fun stopPlayback(clearChannel: Boolean = true) {
         timeshift.clear()
-        loadedId = null
+        playback.stopped()
         lastCatchup = null
         if (clearChannel) {
             _zapList.value = null
