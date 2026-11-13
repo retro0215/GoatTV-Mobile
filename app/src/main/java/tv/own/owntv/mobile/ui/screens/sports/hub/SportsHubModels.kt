@@ -345,3 +345,19 @@ object SportsLiveClock {
     fun latest(opened: SportsEvent, shown: List<SportsEvent>): SportsEvent =
         shown.firstOrNull { it.id == opened.id } ?: opened
 }
+
+/**
+ * What a scheduled card says before its start time (pure). Under a day heading the heading already
+ * names the day, so a game on that day shows its local time alone; without one (Live & Today, the
+ * details panel) the day is named when it is not today — Tomorrow, Yesterday, or the date. A game
+ * whose local day differs from its heading (a clock change, a zone change since grouping) names its
+ * own day rather than borrow the heading's. Backend timestamps are untouched: only the label changes.
+ */
+object SportsStartLabel {
+    /** The day to name before the time, or null for the time alone. */
+    fun day(startMs: Long, nowMs: Long, zone: ZoneId, headingDay: LocalDate?): SportsDayLabel? {
+        val startDay = Instant.ofEpochMilli(startMs).atZone(zone).toLocalDate()
+        if (headingDay != null && startDay == headingDay) return null
+        return SportsTimeLabels.day(startMs, nowMs, zone).takeIf { it != SportsDayLabel.TODAY }
+    }
+}

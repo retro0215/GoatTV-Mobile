@@ -213,7 +213,7 @@ private class CardContext(
 )
 
 /** [games] as rows of [across] cards. [keyPrefix] keeps keys unique across sections. */
-private fun LazyListScope.gameRows(games: List<SportsEvent>, across: Int, keyPrefix: String, ctx: CardContext) {
+private fun LazyListScope.gameRows(games: List<SportsEvent>, across: Int, keyPrefix: String, ctx: CardContext, headingDay: LocalDate? = null) {
     items(games.chunked(across), key = { row -> "r:$keyPrefix:" + row.first().id }) { row ->
         Row(horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
             for (game in row) {
@@ -222,6 +222,7 @@ private fun LazyListScope.gameRows(games: List<SportsEvent>, across: Int, keyPre
                     league = ctx.leagues[game.leagueId],
                     channelCount = SportsChannelCounts.shown(ctx.counts, game.id, ctx.profileId),
                     onOpen = { ctx.onOpen(game) },
+                    headingDay = headingDay,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -313,7 +314,7 @@ private fun SchedulePane(
                     if (s.partial) item(key = "partial") { NoticeText(stringResource(R.string.sports_schedule_partial)) }
                     for (section in s.sections) {
                         item(key = "h:${section.leagueId}") { SectionHeader(section.league?.name ?: section.leagueId.uppercase()) }
-                        gameRows(section.games, across, section.leagueId, ctx)
+                        gameRows(section.games, across, section.leagueId, ctx, headingDay = day)
                     }
                 }
             } }
@@ -409,7 +410,7 @@ private fun LeagueGames(vm: SportsHubViewModel, league: SportsLeague, onBack: ()
                 LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = ListPadding, verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
                     for (section in s.days) {
                         item(key = "d:${section.day}") { SectionHeader(dayTitle(section.day)) }
-                        gameRows(section.games, across, section.day.toString(), ctx)
+                        gameRows(section.games, across, section.day.toString(), ctx, headingDay = section.day)
                     }
                 }
             } }
@@ -503,6 +504,8 @@ private fun GameCard(
     channelCount: Int?,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The day heading the card sits under, if any: its own day is then not repeated. */
+    headingDay: LocalDate? = null,
 ) {
     val shape = RoundedCornerShape(MobileDimens.CardCorner)
     val detailsLabel = stringResource(R.string.sports_details_action)
@@ -524,7 +527,7 @@ private fun GameCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            StatusLabel(event)
+            StatusLabel(event, headingDay)
         }
         val away = event.away
         val home = event.home
@@ -593,7 +596,7 @@ private fun TeamLogo(team: SportsTeam) {
 }
 
 @Composable
-private fun StatusLabel(event: SportsEvent) {
+private fun StatusLabel(event: SportsEvent, headingDay: LocalDate? = null) {
     when (event.status) {
         // The badge, then the game clock exactly as the backend reports it ("7:16 - 1st",
         // "Halftime", "Top 3rd") — nothing when it reports none; never a clock of our own.
@@ -622,7 +625,7 @@ private fun StatusLabel(event: SportsEvent) {
             }
         }
         else -> Text(
-            text = statusText(event),
+            text = statusText(event, headingDay),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -634,22 +637,22 @@ private fun StatusLabel(event: SportsEvent) {
 
 /** Start time (local, labelled by day), or what the backend says about a game that isn't upcoming. */
 @Composable
-private fun statusText(event: SportsEvent): String = when (event.status) {
+private fun statusText(event: SportsEvent, headingDay: LocalDate? = null): String = when (event.status) {
     SportsEventStatus.FINAL -> event.statusDetail ?: stringResource(R.string.sports_status_final)
     SportsEventStatus.POSTPONED -> stringResource(R.string.sports_status_postponed)
     SportsEventStatus.CANCELED -> stringResource(R.string.sports_status_canceled)
     SportsEventStatus.DELAYED -> event.statusDetail ?: stringResource(R.string.sports_status_delayed)
     SportsEventStatus.LIVE -> SportsLiveClock.text(event).orEmpty()
-    SportsEventStatus.SCHEDULED, SportsEventStatus.UNKNOWN -> startLabel(event.startTimeMs)
+    SportsEventStatus.SCHEDULED, SportsEventStatus.UNKNOWN -> startLabel(event.startTimeMs, headingDay)
 }
 
 @Composable
-private fun startLabel(startMs: Long): String {
+private fun startLabel(startMs: Long, headingDay: LocalDate? = null): String {
     val context = LocalContext.current
     val zone = ZoneId.systemDefault()
     val time = DateFormat.getTimeFormat(context).format(Date(startMs))
-    val day = when (SportsTimeLabels.day(startMs, System.currentTimeMillis(), zone)) {
-        SportsDayLabel.TODAY -> return time
+    val day = when (SportsStartLabel.day(startMs, System.currentTimeMillis(), zone, headingDay)) {
+        null, SportsDayLabel.TODAY -> return time
         SportsDayLabel.TOMORROW -> stringResource(R.string.sports_day_tomorrow)
         SportsDayLabel.YESTERDAY -> stringResource(R.string.sports_day_yesterday)
         SportsDayLabel.OTHER -> DateFormat.getMediumDateFormat(context).format(Date(startMs))
