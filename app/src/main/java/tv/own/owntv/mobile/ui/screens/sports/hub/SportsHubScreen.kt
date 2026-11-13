@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -47,6 +50,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -63,7 +68,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.combine
 import org.koin.androidx.compose.koinViewModel
-import tv.own.owntv.core.theme.GlassSurface
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.sports.live.SportsAccessIssue
 import tv.own.owntv.mobile.sports.live.SportsChannelOffer
@@ -78,7 +82,6 @@ import tv.own.owntv.mobile.ui.nav.MobileDestination
 import tv.own.owntv.mobile.ui.screens.ObeyScrollToTop
 import tv.own.owntv.mobile.ui.screens.sports.SportsScreen
 import tv.own.owntv.mobile.ui.theme.MobileDimens
-import tv.own.owntv.mobile.ui.theme.glassSurface
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneId
@@ -706,10 +709,10 @@ private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: Spor
         value = vm.channelsFor(event)
     }
     MobileBottomSheet(onDismissRequest = onDismiss, title = title) {
-        // The sheet is frosted glass over whatever is behind it; the details sit on the theme's card
-        // glass inside it — the darker, unfrosted layer cards use — so scores and names stay legible
-        // over a busy wallpaper or a live preview.
-        DetailsPanel {
+        // The sheet is frosted glass; on the Samsung (1.0.7) the cards behind it still read through its
+        // lower half, card glass inside it or not. So the details stand on an OPAQUE surface of the
+        // theme's own colour: nothing behind shows through, whatever the glass setting or the brand.
+        DetailsSurface {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
                 Text(
                     leagueLabel(event, league),
@@ -731,10 +734,9 @@ private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: Spor
             if (event.status != SportsEventStatus.SCHEDULED && event.status != SportsEventStatus.UNKNOWN) {
                 Text(startLabel(event.startTimeMs), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        val networks = event.broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }.map { it.name }.distinct()
-        if (event.venueName != null || networks.isNotEmpty() || event.channels.isNotEmpty()) {
-            DetailsPanel {
+            val networks = event.broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }.map { it.name }.distinct()
+            if (event.venueName != null || networks.isNotEmpty() || event.channels.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = MobileDimens.GapTiny))
                 event.venueName?.let { DetailLine(stringResource(R.string.sports_details_venue), it) }
                 if (networks.isNotEmpty()) DetailLine(stringResource(R.string.sports_details_on_tv), networks.joinToString())
                 if (event.channels.isNotEmpty()) {
@@ -753,13 +755,30 @@ private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: Spor
     }
 }
 
+/**
+ * The details' own surface: opaque, rounded like the app's cards, in the theme's high container colour
+ * (made fully opaque over the background should a theme ever give it transparency), and scrollable
+ * within a height cap — so venue, networks and channels stay reachable in landscape and at large font
+ * sizes. Only this sheet uses it; every other sheet keeps its glass.
+ */
 @Composable
-private fun DetailsPanel(content: @Composable ColumnScope.() -> Unit) {
+private fun DetailsSurface(content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(MobileDimens.CardCorner)
+    val fill = SportsDetailsSurface.fill(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.background)
+    val window = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val maxHeight = with(density) {
+        SportsDetailsSurface.maxHeightDp(window.width.toDp().value.toInt(), window.height.toDp().value.toInt()).dp
+    }
     Column(
         Modifier
             .fillMaxWidth()
-            .glassSurface(GlassSurface.CARDS, RoundedCornerShape(MobileDimens.CardCorner))
-            .padding(horizontal = MobileDimens.GapMedium, vertical = MobileDimens.GapSmall + MobileDimens.GapTiny),
+            .heightIn(max = maxHeight)
+            .clip(shape)
+            .background(fill, shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), shape)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = MobileDimens.GapMedium, vertical = MobileDimens.GapMedium),
         verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
         content = content,
     )

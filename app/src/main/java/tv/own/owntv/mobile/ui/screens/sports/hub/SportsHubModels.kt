@@ -5,6 +5,8 @@ import tv.own.owntv.mobile.sports.live.SportsEvent
 import tv.own.owntv.mobile.sports.live.SportsEventStatus
 import tv.own.owntv.mobile.sports.live.SportsLeague
 import tv.own.owntv.mobile.sports.live.SportsLiveState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -389,4 +391,21 @@ class SportsLiveReveal {
         /** At the top: the list's first item is the first one showing (it may be partly scrolled). */
         fun atTop(firstVisibleItemIndex: Int): Boolean = firstVisibleItemIndex == 0
     }
+}
+
+/** The game-details surface's colour and size rules (pure). */
+object SportsDetailsSurface {
+    /** The theme colour, made fully opaque over [behind] if it has any transparency: nothing shows through. */
+    fun fill(surface: Color, behind: Color): Color =
+        if (surface.alpha >= 1f) surface else surface.compositeOver(behind.copy(alpha = 1f))
+
+    /**
+     * The tallest the details may be before they scroll: most of a landscape phone (~400 dp tall, and
+     * the sheet's handle and title need the rest), well over half a portrait one.
+     */
+    fun maxHeightDp(screenWidthDp: Int, screenHeightDp: Int): Int =
+        (screenHeightDp * if (screenHeightDp < screenWidthDp) LANDSCAPE_SHARE else PORTRAIT_SHARE).toInt()
+
+    const val LANDSCAPE_SHARE = 0.6f
+    const val PORTRAIT_SHARE = 0.62f
 }
