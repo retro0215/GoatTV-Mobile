@@ -248,7 +248,8 @@ fun LiveScreen(
                 ) {
                     Icon(
                         imageVector = MobileIcons.OpenInFull,
-                        contentDescription = stringResource(R.string.live_categories_button),
+                        // It said "Categories" — the label of the button beside it.
+                        contentDescription = stringResource(R.string.multiview_tile_fullscreen),
                         tint = Color.White,
                         modifier = Modifier.size(18.dp),
                     )
