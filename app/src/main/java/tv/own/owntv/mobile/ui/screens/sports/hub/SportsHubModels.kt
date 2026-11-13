@@ -277,6 +277,23 @@ data class SportsHubSelection(
 ) {
     fun toSaved(): List<Any?> = listOf(tab.name, sport, epochDay, leagueId)
 
+    /**
+     * A new sport closes the open league: going back to the league's sport later shows that sport's
+     * league list, not the league that was open before. Choosing the sport already chosen changes nothing.
+     */
+    fun withSport(newSport: String?): SportsHubSelection =
+        if (newSport == sport) this else copy(sport = newSport, leagueId = null)
+
+    /**
+     * Drops a remembered league that no longer fits — gone from the backend, or of another sport than
+     * the one chosen — once the leagues are known (restored state, rotation). While they are still
+     * loading nothing can be judged, so the selection is kept as it is.
+     */
+    fun normalized(leagues: List<SportsLeague>, effectiveSport: String?): SportsHubSelection {
+        if (leagueId == null || leagues.isEmpty()) return this
+        return if (SportsLeaguesModel.effective(leagueId, leagues, effectiveSport) == null) copy(leagueId = null) else this
+    }
+
     companion object {
         fun fromSaved(saved: List<Any?>): SportsHubSelection = SportsHubSelection(
             tab = SportsHubTab.entries.firstOrNull { it.name == saved.getOrNull(0) } ?: SportsHubTab.LIVE_TODAY,

@@ -132,6 +132,9 @@ fun SportsHubScreen(
     val days = remember(todayEpoch, zone) { SportsScheduleDays.days(System.currentTimeMillis(), zone) }
     val day = SportsScheduleDays.effective(selection.epochDay, days)
     val leagueId = SportsLeaguesModel.effective(selection.leagueId, leagues, sport)
+    // A restored league that no longer fits is forgotten, not merely hidden, so it cannot reappear.
+    val normalized = selection.normalized(leagues, sport)
+    if (normalized != selection) SideEffect { selection = normalized }
     val query = SportsHubQuery(selection.tab, sport, day, leagueId)
     SideEffect { vm.show(query) }
 
@@ -148,7 +151,7 @@ fun SportsHubScreen(
             onSelect = { index -> SportsHubTab.entries.getOrNull(index)?.let { selection = selection.copy(tab = it) } },
         )
         if (selection.tab != SportsHubTab.CHANNELS && sports.isNotEmpty()) {
-            SportSelector(sports, sport, onSelect = { selection = selection.copy(sport = it) })
+            SportSelector(sports, sport, onSelect = { selection = selection.withSport(it) })
         }
         val pane = Modifier.weight(1f).fillMaxWidth()
         when (selection.tab) {
