@@ -1,14 +1,8 @@
 package tv.own.owntv.mobile.sports.live
 
-import kotlinx.coroutines.flow.first
-import tv.own.owntv.core.database.dao.ChannelDao
-import tv.own.owntv.core.database.dao.SourceDao
-import tv.own.owntv.core.database.entity.ChannelEntity
 import tv.own.owntv.core.database.entity.SourceEntity
 import tv.own.owntv.core.model.SourceType
 import tv.own.owntv.core.repository.ActiveProfileSources
-import tv.own.owntv.core.repository.activeProfileSources
-import tv.own.owntv.core.settings.SettingsRepository
 
 /**
  * Which one of the active profile's playlists Sports channel matches may come from (pure, unit-tested).
@@ -21,6 +15,8 @@ import tv.own.owntv.core.settings.SettingsRepository
  *
  * A default that points elsewhere (a removed playlist, another profile's, an M3U or Stalker one, one
  * with Live TV switched off) is not eligible and is passed over, never followed.
+ *
+ * Read from core by [MobileSportsAccessData], in the same snapshot as the profile's visibility rules.
  */
 object SportsPlaylistSelection {
 
@@ -48,27 +44,4 @@ object SportsPlaylistSelection {
             else -> Choice.Ambiguous(eligible.size)
         }
     }
-}
-
-/**
- * The production [SportsChannelLookup] on core 1.0.67: the active profile's playlists from
- * [activeProfileSources] (the same view Live TV uses), the default playlist setting, and
- * [ChannelDao.findByRemote] — `WHERE sourceId = ? AND remoteId = ?` against core's unique
- * `(sourceId, remoteId)` index. It never reads another profile's playlists and never searches by name.
- */
-class MobileSportsChannelLookup(
-    private val settings: SettingsRepository,
-    private val sourceDao: SourceDao,
-    private val channelDao: ChannelDao,
-) : SportsChannelLookup {
-
-    override suspend fun eligibleSource(): SourceEntity? {
-        val profile = activeProfileSources(settings, sourceDao).first()
-        if (profile.profileId < 0) return null
-        val choice = SportsPlaylistSelection.choose(SportsPlaylistSelection.eligible(profile), settings.defaultSourceId.first())
-        return (choice as? SportsPlaylistSelection.Choice.Selected)?.source
-    }
-
-    override suspend fun findByRemote(sourceId: Long, remoteId: String): ChannelEntity? =
-        channelDao.findByRemote(sourceId, remoteId)
 }

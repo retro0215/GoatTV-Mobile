@@ -150,6 +150,7 @@
 1	json	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsApiParser.kt	venueName
 1	json	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsApiParser.kt	weightClass
 3	json	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsApiParser.kt	winner
+1	technical	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsChannelAccess.kt	VisibleSportsChannel($name)
 1	regex	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsChannelFeature.kt	^[a-z0-9-]{1,32}$
 3	empty	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsChannelResolver.kt	\0
 1	technical	app/src/main/java/tv/own/owntv/mobile/sports/live/SportsChannelResolver.kt	&

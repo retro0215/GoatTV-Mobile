@@ -5,14 +5,15 @@ import androidx.compose.runtime.Immutable
 /**
  * One Where to Watch entry as it will be shown: channel name, the network / category where useful and
  * a 4K/UHD tag. Deliberately carries NO implementation details (remote id, EPG id, confidence, match
- * reason, Sports channel id). Ported from the GoatTV Android TV app (tag v4.6.1).
+ * reason, Sports channel id, stream URL). Ported from the GoatTV Android TV app (tag v4.6.1).
  *
- * Phase 2A only shapes the rows; nothing shows or acts on them until the adult and hidden-channel rules
- * are in place (Phase 2B) and the Where to Watch screen exists.
+ * Built only from [VisibleSportsChannel]s — channels that already passed identity AND the profile's
+ * visibility rules ([SportsChannelAccess]) — so a row can never show a hidden or blocked channel.
+ * Nothing shows or acts on the rows until the Where to Watch screen exists.
  */
 @Immutable
 data class SportsWatchRow(
-    /** Local channel id: used only to act on the row, never displayed. */
+    /** Local channel id: used only to mark / act on the row, never displayed. */
     val localChannelId: Long,
     val name: String,
     /** Broadcast network for this feed when the event lists it ("ESPN"); null when unknown. */
@@ -29,19 +30,19 @@ internal object SportsWatchPresentation {
 
     fun isUhd(name: String): Boolean = UHD.containsMatchIn(name)
 
-    /** Rows in backend rank order (the resolver preserved it; never re-sorted here). */
-    fun rows(event: SportsEvent, channels: List<ResolvedSportsChannel>, selectedChannelId: Long?): List<SportsWatchRow> =
-        channels.map { r ->
-            val broadcast = r.ref.networkKey?.let { key ->
+    /** Rows in backend rank order (resolution and filtering preserved it; never re-sorted here). */
+    fun rows(event: SportsEvent, channels: List<VisibleSportsChannel>, selectedChannelId: Long?): List<SportsWatchRow> =
+        channels.map { c ->
+            val broadcast = c.networkKey?.let { key ->
                 event.broadcasts.firstOrNull { it.networkKey.equals(key, ignoreCase = true) }?.name
             }
             SportsWatchRow(
-                localChannelId = r.channel.id,
-                name = r.channel.name,
+                localChannelId = c.localChannelId,
+                name = c.name,
                 network = broadcast,
-                category = r.ref.category?.takeIf { it.isNotBlank() },
-                uhd = isUhd(r.channel.name) || isUhd(r.ref.name),
-                selected = r.channel.id == selectedChannelId,
+                category = c.category,
+                uhd = c.uhd,
+                selected = c.localChannelId == selectedChannelId,
             )
         }
 }
