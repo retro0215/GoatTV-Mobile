@@ -25,6 +25,7 @@ import tv.own.owntv.mobile.di.playerModule
 import tv.own.owntv.mobile.di.searchModule
 import tv.own.owntv.mobile.di.settingsModule
 import tv.own.owntv.mobile.di.shellModule
+import tv.own.owntv.mobile.di.sportsModule
 import tv.own.owntv.mobile.ui.theme.subtitleFontResource
 
 /**
@@ -107,7 +108,7 @@ class OwnTVMobileApp : Application(), androidx.work.Configuration.Provider {
             modules(
                 coreModule, databaseModule, dataModule, playerModule, shellModule,
                 liveModule, libraryModule, guideModule, homeModule, searchModule,
-                downloadsModule, settingsModule,
+                downloadsModule, settingsModule, sportsModule,
             )
         }
         // A chosen icon colour ("Later", the first-run pick, a restore) reaches the launcher when the app

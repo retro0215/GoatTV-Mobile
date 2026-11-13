@@ -175,21 +175,26 @@ android {
             dimension = "brand"
             applicationId = "tv.goat.tv.mobile"
             manifestPlaceholders["appLabel"] = "GoatTV"
+            // Sports channel matches: this brand's own id, never another brand's (?brand=).
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"goat\"")
         }
         create("allaccess") {
             dimension = "brand"
             applicationId = "tv.allaccess.app.mobile"
             manifestPlaceholders["appLabel"] = "AllAccess"
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"allaccess\"")
         }
         create("fivestar") {
             dimension = "brand"
             applicationId = "tv.fivestar.ultra.mobile"
             manifestPlaceholders["appLabel"] = "5Star Ultra"
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"fivestar\"")
         }
         create("supreme") {
             dimension = "brand"
             applicationId = "tv.supreme.app.mobile"
             manifestPlaceholders["appLabel"] = "Supreme TV"
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"supreme\"")
         }
 
         create("standard") {
