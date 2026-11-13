@@ -54,6 +54,10 @@ class SportsApiClient(
     suspend fun eventsForSport(sport: String, fromMs: Long, toMs: Long): SportsApiResult<SportsEventsPayload> =
         get(eventsForSportPath(sport, fromMs, toMs, brand), SportsApiParser::parseEventsPage)
 
+    /** One league's games in [fromMs, toMs) (`/sports/events?league=`, at most 14 days), with this brand's channels. */
+    suspend fun eventsForLeague(leagueId: String, fromMs: Long, toMs: Long): SportsApiResult<SportsEventsPayload> =
+        get(eventsForLeaguePath(leagueId, fromMs, toMs, brand), SportsApiParser::parseEventsPage)
+
     private fun request(path: String): Request = Request.Builder()
         .url(baseUrl.trimEnd('/') + path)
         .header("Accept", "application/json")
@@ -106,6 +110,13 @@ class SportsApiClient(
 
         internal fun eventsForSportPath(sport: String, fromMs: Long, toMs: Long, brand: String? = null): String = withBrand(
             "/sports/events?sport=" + URLEncoder.encode(sport, "UTF-8") +
+                "&from=" + URLEncoder.encode(isoUtc(fromMs), "UTF-8") +
+                "&to=" + URLEncoder.encode(isoUtc(toMs), "UTF-8"),
+            brand,
+        )
+
+        internal fun eventsForLeaguePath(leagueId: String, fromMs: Long, toMs: Long, brand: String? = null): String = withBrand(
+            "/sports/events?league=" + URLEncoder.encode(leagueId, "UTF-8") +
                 "&from=" + URLEncoder.encode(isoUtc(fromMs), "UTF-8") +
                 "&to=" + URLEncoder.encode(isoUtc(toMs), "UTF-8"),
             brand,

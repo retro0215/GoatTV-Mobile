@@ -7,6 +7,7 @@ import tv.own.owntv.mobile.sports.live.SportsAccessData
 import tv.own.owntv.mobile.sports.live.SportsApiClient
 import tv.own.owntv.mobile.sports.live.SportsChannelAccess
 import tv.own.owntv.mobile.sports.live.SportsLiveStore
+import tv.own.owntv.mobile.sports.live.SportsScheduleRepository
 import tv.own.owntv.mobile.sports.live.asSportsApi
 import tv.own.owntv.mobile.ui.screens.sports.hub.SportsHubViewModel
 
@@ -25,6 +26,8 @@ import tv.own.owntv.mobile.ui.screens.sports.hub.SportsHubViewModel
 val sportsModule = module {
     single { SportsApiClient(sharedClient = get()) }
     single { SportsLiveStore(api = get<SportsApiClient>().asSportsApi()) }
+    // Schedule days and league weeks beyond the store's window: bounded requests, kept in memory.
+    single { SportsScheduleRepository(api = get<SportsApiClient>().asSportsApi()) }
     single<SportsAccessData> {
         MobileSportsAccessData(
             settings = get(),
@@ -36,6 +39,6 @@ val sportsModule = module {
         )
     }
     single { SportsChannelAccess(get()) }
-    // Live & Today: reads the store and asks SportsChannelAccess for counts; plays nothing.
+    // Live & Today, Schedule and Leagues: read the store and the schedule, ask SportsChannelAccess for counts; play nothing.
     viewModelOf(::SportsHubViewModel)
 }

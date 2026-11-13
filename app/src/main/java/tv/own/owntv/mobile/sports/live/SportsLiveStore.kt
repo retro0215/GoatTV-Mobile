@@ -15,6 +15,10 @@ interface SportsApi {
     suspend fun home(): SportsApiResult<SportsHomePayload>
     suspend fun eventsSince(cursor: String): SportsApiResult<SportsEventsPayload>
     suspend fun eventsForSport(sport: String, fromMs: Long, toMs: Long): SportsApiResult<SportsEventsPayload>
+
+    /** One league's games in a window; only the Leagues view asks, so test fakes need not implement it. */
+    suspend fun eventsForLeague(leagueId: String, fromMs: Long, toMs: Long): SportsApiResult<SportsEventsPayload> =
+        SportsApiResult.Unavailable(SportsApiResult.Reason.NETWORK)
 }
 
 fun SportsApiClient.asSportsApi(): SportsApi = object : SportsApi {
@@ -22,6 +26,8 @@ fun SportsApiClient.asSportsApi(): SportsApi = object : SportsApi {
     override suspend fun eventsSince(cursor: String) = this@asSportsApi.eventsSince(cursor)
     override suspend fun eventsForSport(sport: String, fromMs: Long, toMs: Long) =
         this@asSportsApi.eventsForSport(sport, fromMs, toMs)
+    override suspend fun eventsForLeague(leagueId: String, fromMs: Long, toMs: Long) =
+        this@asSportsApi.eventsForLeague(leagueId, fromMs, toMs)
 }
 
 sealed interface SportsLiveState {

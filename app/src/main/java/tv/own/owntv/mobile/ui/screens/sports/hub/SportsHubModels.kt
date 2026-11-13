@@ -9,14 +9,37 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-/** The Sports hub's tabs. Live & Today is new; Channels is the Sports screen the app already had. */
-enum class SportsHubTab { LIVE_TODAY, CHANNELS }
+/** The Sports hub's tabs. Channels is the Sports screen the app already had; the rest are the schedule's. */
+enum class SportsHubTab { LIVE_TODAY, SCHEDULE, LEAGUES, CHANNELS }
 
 /**
- * Whether Live & Today should be refreshing: only while the screen is at least STARTED (in front, app
- * not in the background) and that tab is the one showing. The Channels tab never polls the schedule.
+ * Whether the schedule should be refreshing: only while the screen is at least STARTED (in front, app
+ * not in the background) and one of the schedule's tabs is showing — they all show the store's live
+ * games. The Channels tab never polls the schedule.
  */
-fun sportsPollingActive(started: Boolean, tab: SportsHubTab): Boolean = started && tab == SportsHubTab.LIVE_TODAY
+fun sportsPollingActive(started: Boolean, tab: SportsHubTab): Boolean = started && tab != SportsHubTab.CHANNELS
+
+/**
+ * The sport selector (pure). Offers only sports the backend has enabled leagues for, in a fixed order;
+ * null means All Sports. A saved choice the backend no longer offers reads as All Sports (it is kept,
+ * not overwritten, so it comes back if the sport does).
+ */
+object SportsSportFilter {
+    val ORDER = listOf("football", "basketball", "baseball", "hockey", "soccer", "mma")
+
+    fun available(leagues: List<SportsLeague>): List<String> {
+        val enabled = leagues.mapNotNull { it.sport }.toSet()
+        return ORDER.filter { it in enabled }
+    }
+
+    fun effective(selected: String?, available: List<String>): String? = selected?.takeIf { it in available }
+
+    fun filter(events: Collection<SportsEvent>, leagues: List<SportsLeague>, sport: String?): List<SportsEvent> {
+        if (sport == null) return events.toList()
+        val sportOf = leagues.associate { it.id to it.sport }
+        return events.filter { sportOf[it.leagueId] == sport }
+    }
+}
 
 /** Live & Today's three groups, always in this order. */
 enum class SportsTodayGroup { LIVE, UPCOMING, RECENT }
@@ -61,8 +84,8 @@ sealed interface SportsTodayUiState {
     /** Nothing loaded yet and the service can't be reached right now. */
     data object Unavailable : SportsTodayUiState
 
-    /** Loaded, but nothing live, upcoming or recent. [stale]: the last refresh failed. */
-    data class Empty(val stale: Boolean) : SportsTodayUiState
+    /** Loaded, but nothing live, upcoming or recent. [stale]: the last refresh failed; [filtered]: for the chosen sport. */
+    data class Empty(val stale: Boolean, val filtered: Boolean = false) : SportsTodayUiState
 
     data class Content(
         val sections: List<SportsTodaySection>,
@@ -72,12 +95,13 @@ sealed interface SportsTodayUiState {
     ) : SportsTodayUiState
 
     companion object {
-        fun from(state: SportsLiveState, nowMs: Long): SportsTodayUiState = when (state) {
+        fun from(state: SportsLiveState, nowMs: Long, sport: String? = null): SportsTodayUiState = when (state) {
             SportsLiveState.Loading -> Loading
             SportsLiveState.TemporarilyUnavailable -> Unavailable
             is SportsLiveState.Content -> {
-                val sections = SportsTodayModel.sections(state.slate.eventsById.values, nowMs)
-                if (sections.isEmpty()) Empty(state.stale)
+                val games = SportsSportFilter.filter(state.slate.eventsById.values, state.slate.leagues, sport)
+                val sections = SportsTodayModel.sections(games, nowMs)
+                if (sections.isEmpty()) Empty(state.stale, filtered = sport != null)
                 else Content(sections, state.slate.leagues.associateBy { it.id }, state.stale)
             }
         }
@@ -118,4 +142,175 @@ object SportsTimeLabels {
             else -> SportsDayLabel.OTHER
         }
     }
+}
+
+// ---------------------------------------------------------------------------------------- schedule
+
+/** The Schedule's days: yesterday, today and the six after, in the device's zone (pure). */
+object SportsScheduleDays {
+    const val DAYS_BACK = 1L
+    const val DAYS_AHEAD = 6L
+
+    fun days(nowMs: Long, zone: ZoneId): List<LocalDate> {
+        val today = Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
+        return (-DAYS_BACK..DAYS_AHEAD).map { today.plusDays(it) }
+    }
+
+    /** The chosen day, or today when none was chosen or the saved one has dropped out of the range. */
+    fun effective(selectedEpochDay: Long?, days: List<LocalDate>): LocalDate =
+        days.firstOrNull { it.toEpochDay() == selectedEpochDay } ?: days[DAYS_BACK.toInt()]
+
+    /** [start, end) of [day] in [zone], as epoch millis — a 23- or 25-hour day across a clock change. */
+    fun bounds(day: LocalDate, zone: ZoneId): Pair<Long, Long> =
+        day.atStartOfDay(zone).toInstant().toEpochMilli() to day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+}
+
+/** A league's games within a day. */
+data class SportsLeagueSection(val leagueId: String, val league: SportsLeague?, val games: List<SportsEvent>)
+
+/** A day's games (the Leagues tab lists a league's week by day). */
+data class SportsDaySection(val day: LocalDate, val games: List<SportsEvent>)
+
+object SportsScheduleModel {
+    /** By league, in the backend's league order (unknown leagues last), each by start time. */
+    fun byLeague(events: Collection<SportsEvent>, leagues: List<SportsLeague>): List<SportsLeagueSection> {
+        val byId = leagues.associateBy { it.id }
+        return events.groupBy { it.leagueId }
+            .map { (id, games) -> SportsLeagueSection(id, byId[id], games.sortedWith(START_ORDER)) }
+            .sortedWith(compareBy<SportsLeagueSection> { it.league?.order ?: Int.MAX_VALUE }.thenBy { it.leagueId })
+    }
+
+    /** By the device's day, earliest first, each by start time. */
+    fun byDay(events: Collection<SportsEvent>, zone: ZoneId): List<SportsDaySection> =
+        events.groupBy { Instant.ofEpochMilli(it.startTimeMs).atZone(zone).toLocalDate() }
+            .toSortedMap()
+            .map { (day, games) -> SportsDaySection(day, games.sortedWith(START_ORDER)) }
+
+    private val START_ORDER = compareBy<SportsEvent> { it.startTimeMs }.thenByDescending { it.priority }.thenBy { it.id }
+}
+
+/** The Schedule tab's state for one day and sport. */
+sealed interface SportsScheduleUiState {
+    /** Waiting for the store's first load, or for this day's games. */
+    data object Loading : SportsScheduleUiState
+
+    /** Nothing could be loaded for the day. */
+    data object Unavailable : SportsScheduleUiState
+
+    /** No games that day (for the chosen sport, when [filtered]). */
+    data class Empty(val filtered: Boolean) : SportsScheduleUiState
+
+    /** [partial]: some sports' games could not be loaded; what could is shown. */
+    data class Content(val sections: List<SportsLeagueSection>, val partial: Boolean) : SportsScheduleUiState {
+        val games: List<SportsEvent> get() = sections.flatMap { it.games }
+    }
+
+    companion object {
+        fun from(events: List<SportsEvent>, failedSports: Set<String>, leagues: List<SportsLeague>, sport: String?): SportsScheduleUiState {
+            val shown = SportsSportFilter.filter(events, leagues, sport)
+            val partial = failedSports.isNotEmpty()
+            return when {
+                shown.isEmpty() && partial -> Unavailable
+                shown.isEmpty() -> Empty(filtered = sport != null)
+                else -> Content(SportsScheduleModel.byLeague(shown, leagues), partial)
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------------------- leagues
+
+data class SportsLeagueGroup(val sport: String, val leagues: List<SportsLeague>)
+
+object SportsLeaguesModel {
+    /**
+     * The backend's enabled leagues by sport — the selector's sports in its order, then any other sport
+     * the backend has (e.g. boxing) — each in the backend's league order. Only [sport]'s when one is chosen.
+     */
+    fun groups(leagues: List<SportsLeague>, sport: String?): List<SportsLeagueGroup> {
+        val bySport = leagues.filter { it.sport != null && (sport == null || it.sport == sport) }.groupBy { it.sport!! }
+        val order = SportsSportFilter.ORDER + bySport.keys.filter { it !in SportsSportFilter.ORDER }.sorted()
+        return order.mapNotNull { s ->
+            bySport[s]?.let { SportsLeagueGroup(s, it.sortedWith(compareBy<SportsLeague> { l -> l.order }.thenBy { l -> l.id })) }
+        }
+    }
+
+    /** A remembered league that no longer fits (another sport chosen, league gone) is let go. */
+    fun effective(selectedLeagueId: String?, leagues: List<SportsLeague>, sport: String?): String? {
+        val league = leagues.firstOrNull { it.id == selectedLeagueId } ?: return null
+        return league.id.takeIf { sport == null || league.sport == sport }
+    }
+}
+
+/** One league's games, from yesterday to a week ahead. */
+sealed interface SportsLeagueGamesUiState {
+    data object Loading : SportsLeagueGamesUiState
+    data object Unavailable : SportsLeagueGamesUiState
+
+    /** No games in that window. */
+    data object Empty : SportsLeagueGamesUiState
+
+    data class Content(val days: List<SportsDaySection>) : SportsLeagueGamesUiState {
+        val games: List<SportsEvent> get() = days.flatMap { it.games }
+    }
+
+    companion object {
+        fun from(games: List<SportsEvent>?, zone: ZoneId): SportsLeagueGamesUiState = when {
+            games == null -> Unavailable
+            games.isEmpty() -> Empty
+            else -> Content(SportsScheduleModel.byDay(games, zone))
+        }
+    }
+}
+
+// --------------------------------------------------------------------------------- shared selection
+
+/**
+ * What the hub remembers across tabs, rotation and process death: the tab, the sport (null = All
+ * Sports), the Schedule's day (epoch day; null = today) and the open league. Saved as a plain list.
+ */
+data class SportsHubSelection(
+    val tab: SportsHubTab = SportsHubTab.LIVE_TODAY,
+    val sport: String? = null,
+    val epochDay: Long? = null,
+    val leagueId: String? = null,
+) {
+    fun toSaved(): List<Any?> = listOf(tab.name, sport, epochDay, leagueId)
+
+    companion object {
+        fun fromSaved(saved: List<Any?>): SportsHubSelection = SportsHubSelection(
+            tab = SportsHubTab.entries.firstOrNull { it.name == saved.getOrNull(0) } ?: SportsHubTab.LIVE_TODAY,
+            sport = saved.getOrNull(1) as? String,
+            epochDay = saved.getOrNull(2) as? Long,
+            leagueId = saved.getOrNull(3) as? String,
+        )
+    }
+}
+
+/** What the view model needs to load for the hub as it stands: the tab, the effective sport, day and league. */
+data class SportsHubQuery(
+    val tab: SportsHubTab,
+    val sport: String?,
+    val day: LocalDate?,
+    val leagueId: String?,
+)
+
+/**
+ * The games whose channels are counted: the store's and whatever Schedule or Leagues is showing, one
+ * per id (the newest copy), only those that list channels. Counted for the active profile as before.
+ */
+object SportsCountedGames {
+    fun of(vararg lists: Collection<SportsEvent>): List<SportsEvent> {
+        val byId = LinkedHashMap<String, SportsEvent>()
+        for (list in lists) for (e in list) {
+            if (e.channels.isEmpty()) continue
+            val existing = byId[e.id]
+            if (existing == null || e.updatedAtMs >= existing.updatedAtMs) byId[e.id] = e
+        }
+        return byId.values.toList()
+    }
+
+    /** Whether a recount is needed: the same games listing the same channels needs none. */
+    fun same(a: List<SportsEvent>, b: List<SportsEvent>): Boolean =
+        a.size == b.size && a.zip(b).all { (x, y) -> x.id == y.id && x.channels == y.channels }
 }
