@@ -78,9 +78,14 @@ class SportsLiveStore(
      * Refreshes only if the schedule says so, deciding under the fetch lock: returns the wait until the
      * next refresh — the remaining time when it was not due yet, the new delay when it fetched.
      */
-    suspend fun refreshIfDue(): Long = mutex.withLock {
+    suspend fun refreshIfDue(): Long = refreshIfDue(forgiveTransient = false).delayMs
+
+    /** One scheduled step: the wait until the next one, and whether this one actually fetched. */
+    internal data class Tick(val delayMs: Long, val fetched: Boolean)
+
+    internal suspend fun refreshIfDue(forgiveTransient: Boolean): Tick = mutex.withLock {
         val wait = nextDueAtMs - clock()
-        if (wait > 0) wait else refreshLocked()
+        if (wait > 0) Tick(wait, fetched = false) else Tick(refreshLocked(forgiveTransient), fetched = true)
     }
 
     /**
@@ -90,26 +95,42 @@ class SportsLiveStore(
      * screen being left pauses polling; coming back resumes it on the existing schedule — a return
      * within the interval makes no request at all. Turning inactive, or cancelling the caller, cancels
      * the loop and any request in flight.
+     *
+     * Coming back from the background, Android can still be restoring the app's network access when the
+     * first request goes out, and that request fails at the socket (seen on a Samsung S25: a
+     * SocketException in the same instant the network policy lifted). So the FIRST fetch after each
+     * activation forgives one connection failure: it is retried once after [RECOVERY_RETRY_MS], with no
+     * backoff, no failure counted and the screen's data untouched. Anything else — a second failure, a
+     * 429 (its Retry-After still rules), a server error, a malformed reply — follows the normal rules.
      */
     suspend fun runWhileActive(active: Flow<Boolean>) {
         active.distinctUntilChanged().collectLatest { on ->
             if (on) {
-                while (true) sleep(refreshIfDue())
+                var forgive = true
+                while (true) {
+                    val tick = refreshIfDue(forgiveTransient = forgive)
+                    if (tick.fetched) forgive = false
+                    sleep(tick.delayMs)
+                }
             }
         }
     }
 
-    private suspend fun refreshLocked(): Long {
+    private suspend fun refreshLocked(forgiveTransient: Boolean = false): Long {
         val now = clock()
         val slate = (_state.value as? SportsLiveState.Content)?.slate
         val needsHome = slate == null || now - slate.homeLoadedAtMs >= HOME_RELOAD_MS
         var retryAfterMs = 0L
+        var connectionFailed = false
+        val noteFailure = { r: SportsApiResult<*> ->
+            if (r == SportsApiResult.Unavailable(SportsApiResult.Reason.NETWORK)) connectionFailed = true
+        }
 
         val updated: SportsSlate? = if (needsHome) {
             when (val r = api.home()) {
                 is SportsApiResult.Success -> withExtendedSports(SportsSlateLogic.fromHome(r.value, now), slate, now)
                 is SportsApiResult.RateLimited -> { retryAfterMs = r.retryAfterSeconds * 1000; null }
-                else -> null
+                else -> { noteFailure(r); null }
             }
         } else {
             when (val r = api.eventsSince(slate.cursor)) {
@@ -118,11 +139,18 @@ class SportsLiveStore(
                 is SportsApiResult.Rejected -> when (val h = api.home()) {
                     is SportsApiResult.Success -> withExtendedSports(SportsSlateLogic.fromHome(h.value, now), slate, now)
                     is SportsApiResult.RateLimited -> { retryAfterMs = h.retryAfterSeconds * 1000; null }
-                    else -> null
+                    else -> { noteFailure(h); null }
                 }
                 is SportsApiResult.RateLimited -> { retryAfterMs = r.retryAfterSeconds * 1000; null }
-                is SportsApiResult.Unavailable -> null
+                is SportsApiResult.Unavailable -> { noteFailure(r); null }
             }
+        }
+
+        // The one forgiven failure: a connection that failed on the first fetch after coming back.
+        // Nothing changes on screen and nothing is counted; the same fetch is simply tried again soon.
+        if (updated == null && forgiveTransient && connectionFailed && retryAfterMs == 0L) {
+            nextDueAtMs = now + RECOVERY_RETRY_MS
+            return RECOVERY_RETRY_MS
         }
 
         if (updated != null) {
@@ -158,6 +186,9 @@ class SportsLiveStore(
 
     companion object {
         const val HOME_RELOAD_MS = 10 * 60_000L
+
+        /** The one quick retry after a connection failure on coming back (see [runWhileActive]). */
+        const val RECOVERY_RETRY_MS = 2_000L
     }
 }
 
