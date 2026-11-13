@@ -41,7 +41,6 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -206,6 +205,11 @@ private fun cardsAcross(maxWidth: Dp): Int = ((maxWidth - MobileDimens.ScreenPad
 private val ListPadding = PaddingValues(start = MobileDimens.ScreenPaddingH, end = MobileDimens.ScreenPaddingH, bottom = MobileDimens.GapMedium)
 
 /** What a game card needs besides the game: its league, this profile's channel count, and opening it. */
+/** Whether Live & Today's list is at its top, followed outside composition (not snapshot state). */
+private class SportsListPosition {
+    var atTop: Boolean = true
+}
+
 private class CardContext(
     val leagues: Map<String, SportsLeague>,
     val counts: SportsChannelCounts,
@@ -252,12 +256,16 @@ private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String
     listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
 
     // Games that just went live are inserted above the list's first visible item; a list that was at
-    // its top is held there (before the next layout) so they show. Where the list is, is read without
-    // subscribing to it, so scrolling does not recompose the pane.
+    // its top is held there (before the next layout) so they show. Whether it is at its top is followed
+    // outside composition and kept in a plain holder, so scrolling never recomposes the pane — and the
+    // check below, made while composing the new content, still sees where the list was before it.
     val reveal = remember { SportsLiveReveal() }
+    val position = remember { SportsListPosition() }
+    LaunchedEffect(listState) {
+        snapshotFlow { SportsLiveReveal.atTop(listState.firstVisibleItemIndex) }.collect { position.atTop = it }
+    }
     (state as? SportsTodayUiState.Content)?.let { content ->
-        val wasAtTop = Snapshot.withoutReadObservation { SportsLiveReveal.atTop(listState.firstVisibleItemIndex) }
-        if (reveal.shouldPinTop(SportsLiveReveal.liveIds(content.sections), wasAtTop)) listState.requestScrollToItem(0)
+        if (reveal.shouldPinTop(SportsLiveReveal.liveIds(content.sections), position.atTop)) listState.requestScrollToItem(0)
     }
 
     when (val s = state) {
