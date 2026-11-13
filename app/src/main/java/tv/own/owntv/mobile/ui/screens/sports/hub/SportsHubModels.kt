@@ -361,3 +361,32 @@ object SportsStartLabel {
         return SportsTimeLabels.day(startMs, nowMs, zone).takeIf { it != SportsDayLabel.TODAY }
     }
 }
+
+/**
+ * Keeps games that have just gone live in view (the decision is pure and unit-tested; the screen acts
+ * on it). Seen on the Samsung with 1.0.7: two games went live while Live & Today sat at its top, and
+ * the new "Live now" section was inserted ABOVE the list's first visible item, so the list kept
+ * showing "Coming up" and the live games were out of sight until the user scrolled up.
+ *
+ * Fed the Live group's game ids on every change of Live & Today's content, it answers whether to hold
+ * the list at its top: only when a game is live that was not before AND the list was at its top just
+ * before the change. Someone who has scrolled further down is never moved; score and clock updates,
+ * games leaving Live and the first content shown never move anything. Ordering is not touched.
+ */
+class SportsLiveReveal {
+    private var seen: Set<String>? = null
+
+    fun shouldPinTop(liveIds: Set<String>, wasAtTop: Boolean): Boolean {
+        val before = seen
+        seen = liveIds
+        return before != null && wasAtTop && !before.containsAll(liveIds)
+    }
+
+    companion object {
+        fun liveIds(sections: List<SportsTodaySection>): Set<String> =
+            sections.firstOrNull { it.group == SportsTodayGroup.LIVE }?.games?.mapTo(LinkedHashSet()) { it.id }.orEmpty()
+
+        /** At the top: the list's first item is the first one showing (it may be partly scrolled). */
+        fun atTop(firstVisibleItemIndex: Int): Boolean = firstVisibleItemIndex == 0
+    }
+}

@@ -41,6 +41,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -249,6 +250,15 @@ private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String
     var details by remember { mutableStateOf<SportsEvent?>(null) }
     val listState = rememberLazyListState()
     listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
+
+    // Games that just went live are inserted above the list's first visible item; a list that was at
+    // its top is held there (before the next layout) so they show. Where the list is, is read without
+    // subscribing to it, so scrolling does not recompose the pane.
+    val reveal = remember { SportsLiveReveal() }
+    (state as? SportsTodayUiState.Content)?.let { content ->
+        val wasAtTop = Snapshot.withoutReadObservation { SportsLiveReveal.atTop(listState.firstVisibleItemIndex) }
+        if (reveal.shouldPinTop(SportsLiveReveal.liveIds(content.sections), wasAtTop)) listState.requestScrollToItem(0)
+    }
 
     when (val s = state) {
         SportsTodayUiState.Loading -> LoadingBox(modifier)
