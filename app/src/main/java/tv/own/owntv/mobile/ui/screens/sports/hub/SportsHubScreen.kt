@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.key
@@ -53,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
@@ -66,12 +68,34 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+import android.widget.Toast
+import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import tv.own.owntv.core.database.entity.ChannelEntity
+import tv.own.owntv.mobile.ui.components.MobileButtonStyle
+import tv.own.owntv.mobile.ui.components.MobileIcons
+import tv.own.owntv.mobile.ui.player.VideoStage
+import tv.own.owntv.mobile.ui.screens.live.LiveTuner
+import tv.own.owntv.mobile.ui.screens.live.addToMultiview
+import tv.own.owntv.mobile.ui.screens.multiview.MultiviewContent
+import tv.own.owntv.mobile.ui.screens.multiview.MultiviewModel
+import tv.own.owntv.mobile.ui.screens.multiview.MultiviewPreferences
+import tv.own.owntv.mobile.ui.screens.multiview.MultiviewSession
+import tv.own.owntv.mobile.ui.screens.multiview.PerformanceWarning
+import tv.own.owntv.mobile.ui.shell.LocalStreamOnScreen
+import tv.own.owntv.player.describe
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.sports.live.SportsAccessIssue
 import tv.own.owntv.mobile.sports.live.SportsChannelOffer
@@ -109,8 +133,9 @@ private val SelectionSaver = listSaver<SportsHubSelection, Any?>(
  * playback, Multiview and lifecycle are its own).
  *
  * The tab, the sport, the Schedule's day and the open league are one saved selection, shared by the
- * tabs and kept across rotation. A card opens a details panel whose Where to Watch list plays a channel
- * in the full screen player (Watch); Back from the player returns to the panel.
+ * tabs and kept across rotation. A card opens a details panel whose Where to Watch list can Watch a
+ * channel full screen, Preview it inside the panel, or Add it to Multiview; Back from the player or the
+ * grid returns to the panel.
  */
 @Composable
 fun SportsHubScreen(
@@ -165,9 +190,10 @@ fun SportsHubScreen(
             SportSelector(sports, sport, onSelect = { selection = selection.withSport(it) })
         }
         val pane = Modifier.weight(1f).fillMaxWidth()
+        val nav = SportsHubNav(openPlayer = onOpenPlayer, openMultiview = { onOpenMultiview(false) })
         when (selection.tab) {
-            SportsHubTab.LIVE_TODAY -> LiveTodayPane(vm, scrollToTop, onOpenPlayer, pane)
-            SportsHubTab.SCHEDULE -> SchedulePane(vm, days, day, onSelectDay = { selection = selection.copy(epochDay = it.toEpochDay()) }, scrollToTop, onOpenPlayer, pane)
+            SportsHubTab.LIVE_TODAY -> LiveTodayPane(vm, scrollToTop, nav, pane)
+            SportsHubTab.SCHEDULE -> SchedulePane(vm, days, day, onSelectDay = { selection = selection.copy(epochDay = it.toEpochDay()) }, scrollToTop, nav, pane)
             SportsHubTab.LEAGUES -> LeaguesPane(
                 vm = vm,
                 leagues = leagues,
@@ -175,7 +201,7 @@ fun SportsHubScreen(
                 openLeagueId = leagueId,
                 onOpenLeague = { selection = selection.copy(leagueId = it) },
                 scrollToTop = scrollToTop,
-                onOpenPlayer = onOpenPlayer,
+                nav = nav,
                 modifier = pane,
             )
             SportsHubTab.CHANNELS -> SportsScreen(
@@ -287,7 +313,7 @@ private fun LoadingBox(modifier: Modifier) {
 }
 
 @Composable
-private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String>, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
+private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String>, nav: SportsHubNav, modifier: Modifier = Modifier) {
     val state by vm.today.collectAsStateWithLifecycle()
     val counts by vm.counts.collectAsStateWithLifecycle()
     val profileId by vm.activeProfileId.collectAsStateWithLifecycle()
@@ -332,7 +358,7 @@ private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String
 
     // The open panel follows the game: its clock and score update with each refresh.
     details.current((state as? SportsTodayUiState.Content)?.sections?.flatMap { it.games }.orEmpty())?.let { game ->
-        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onOpenPlayer, onDismiss = details::close)
+        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, nav, onDismiss = details::close)
     }
 }
 
@@ -343,7 +369,7 @@ private fun SchedulePane(
     day: LocalDate,
     onSelectDay: (LocalDate) -> Unit,
     scrollToTop: SharedFlow<String>,
-    onOpenPlayer: () -> Unit,
+    nav: SportsHubNav,
     modifier: Modifier = Modifier,
 ) {
     val state by vm.schedule.collectAsStateWithLifecycle()
@@ -382,7 +408,7 @@ private fun SchedulePane(
     }
 
     details.current((state as? SportsScheduleUiState.Content)?.games.orEmpty())?.let { game ->
-        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onOpenPlayer, onDismiss = details::close)
+        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, nav, onDismiss = details::close)
     }
 }
 
@@ -394,7 +420,7 @@ private fun LeaguesPane(
     openLeagueId: String?,
     onOpenLeague: (String?) -> Unit,
     scrollToTop: SharedFlow<String>,
-    onOpenPlayer: () -> Unit,
+    nav: SportsHubNav,
     modifier: Modifier = Modifier,
 ) {
     val today by vm.today.collectAsStateWithLifecycle()
@@ -402,7 +428,7 @@ private fun LeaguesPane(
     listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
     if (openLeagueId != null) {
         val league = leagues.first { it.id == openLeagueId }
-        LeagueGames(vm, league, onBack = { onOpenLeague(null) }, scrollToTop, onOpenPlayer, modifier)
+        LeagueGames(vm, league, onBack = { onOpenLeague(null) }, scrollToTop, nav, modifier)
         return
     }
     val groups = SportsLeaguesModel.groups(leagues, sport)
@@ -448,7 +474,7 @@ private fun LeagueGames(
     league: SportsLeague,
     onBack: () -> Unit,
     scrollToTop: SharedFlow<String>,
-    onOpenPlayer: () -> Unit,
+    nav: SportsHubNav,
     modifier: Modifier,
 ) {
     BackHandler(onBack = onBack)
@@ -485,7 +511,7 @@ private fun LeagueGames(
     }
 
     details.current((state as? SportsLeagueGamesUiState.Content)?.games.orEmpty())?.let { game ->
-        GameDetailsSheet(game, league, vm, profileId, onOpenPlayer, onDismiss = details::close)
+        GameDetailsSheet(game, league, vm, profileId, nav, onDismiss = details::close)
     }
 }
 
@@ -747,7 +773,7 @@ private fun GameDetailsSheet(
     league: SportsLeague?,
     vm: SportsHubViewModel,
     profileId: Long,
-    onOpenPlayer: () -> Unit,
+    nav: SportsHubNav,
     onDismiss: () -> Unit,
 ) {
     val title = run {
@@ -763,34 +789,112 @@ private fun GameDetailsSheet(
         value = vm.channelsFor(event)
     }
     var refused by remember(event.id) { mutableStateOf<SportsWatchRejection?>(null) }
-    var opening by remember(event.id) { mutableStateOf<Long?>(null) }
+    var opening by remember(event.id) { mutableStateOf<SportsPendingAction?>(null) }
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val onWatch: (VisibleSportsChannel) -> Unit = watch@{ chosen ->
-        val shown = offer ?: return@watch
-        if (opening != null) return@watch
-        opening = chosen.localChannelId
+    val activity = LocalActivity.current
+    val inFront = { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+    val multiview: MultiviewSession = koinInject()
+    val multiviewPrefs: MultiviewPreferences = koinInject()
+    val grid by multiview.model.collectAsStateWithLifecycle()
+    val previewing by vm.previewing.collectAsStateWithLifecycle()
+    var warnBeforeAdding by remember(event.id) { mutableStateOf<ChannelEntity?>(null) }
+    val context = LocalContext.current
+    val res = LocalResources.current
+
+    // The panel's Preview lives only as long as the panel is on screen: closing it, leaving Sports for
+    // another tab or Multiview, or the app going to the background stops it. A rotation does not (the
+    // view model keeps it); a Watch has already handed it to the player, so nothing is stopped then.
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, e ->
+            if (e == Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true) vm.stopPreview()
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            if (activity?.isChangingConfigurations != true) vm.stopPreview()
+        }
+    }
+    val streamOnScreen = LocalStreamOnScreen.current
+    val previewShown = previewing != null
+    DisposableEffect(previewShown) {
+        // The mini player stays away while the panel shows the same stream.
+        if (previewShown) streamOnScreen.value = true
+        onDispose { if (previewShown) streamOnScreen.value = false }
+    }
+
+    /** One action at a time, decided again at that moment (see [SportsWatchLauncher.run]). */
+    fun act(chosen: VisibleSportsChannel, action: SportsPanelAction) {
+        val shown = offer ?: return
+        if (opening != null) return
+        opening = SportsPendingAction(chosen.localChannelId, action)
         refused = null
         scope.launch {
-            // Decided again at this moment; nothing plays unless it is still allowed, still listed for
-            // the game, for the profile it was offered to - and the screen is still in front.
-            val result = vm.watch(event, chosen, shown.profileId, title) { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+            val result = when (action) {
+                SportsPanelAction.WATCH -> vm.watch(event, chosen, shown.profileId, title, inFront)
+                SportsPanelAction.PREVIEW -> vm.preview(event, chosen, shown.profileId, title, inFront)
+                SportsPanelAction.MULTIVIEW -> vm.checkForMultiview(event, chosen, shown.profileId, inFront)
+            }
             opening = null
-            when (SportsWatchNext.after(result)) {
-                SportsWatchNext.OPEN_PLAYER -> onOpenPlayer()
-                SportsWatchNext.SHOW_REFUSAL -> {
-                    refused = (result as SportsWatchCheck.Rejected).reason
-                    recheck++
+            if (result is SportsWatchCheck.Rejected) {
+                refused = result.reason
+                recheck++
+                return@launch
+            }
+            if (result !is SportsWatchCheck.Allowed) return@launch
+            when (action) {
+                SportsPanelAction.WATCH -> nav.openPlayer()
+                SportsPanelAction.PREVIEW -> Unit
+                SportsPanelAction.MULTIVIEW -> {
+                    val channel = result.channel
+                    val key = MultiviewContent.Live(channel).key
+                    val now = multiview.model.value
+                    when (SportsMultiviewAdd.decide(now.contains(key), now.isFull) { multiviewPrefs.shouldWarnBeforeAdding(now.size) }) {
+                        SportsMultiviewAdd.ADD -> addToMultiview(multiview, channel, context, res)
+                        SportsMultiviewAdd.WARN_FIRST -> warnBeforeAdding = channel
+                        SportsMultiviewAdd.ALREADY_THERE ->
+                            Toast.makeText(context, res.getString(R.string.sports_multiview_already), Toast.LENGTH_SHORT).show()
+                        SportsMultiviewAdd.FULL ->
+                            Toast.makeText(context, res.getString(R.string.multiview_full, MultiviewModel.MAX_TILES), Toast.LENGTH_SHORT).show()
+                    }
                 }
-                SportsWatchNext.NOTHING -> Unit
             }
         }
     }
-    MobileBottomSheet(onDismissRequest = onDismiss, title = title) {
+    warnBeforeAdding?.let { channel ->
+        PerformanceWarning(
+            onContinue = {
+                warnBeforeAdding = null
+                addToMultiview(multiview, channel, context, res)
+            },
+            onDontShowAgain = {
+                multiviewPrefs.suppressWarning()
+                warnBeforeAdding = null
+                addToMultiview(multiview, channel, context, res)
+            },
+            onCancel = { warnBeforeAdding = null },
+        )
+    }
+    MobileBottomSheet(
+        onDismissRequest = {
+            vm.stopPreview()
+            onDismiss()
+        },
+        title = title,
+    ) {
         // The sheet is frosted glass; on the Samsung (1.0.7) the cards behind it still read through its
         // lower half, card glass inside it or not. So the details stand on an OPAQUE surface of the
         // theme's own colour: nothing behind shows through, whatever the glass setting or the brand.
         DetailsSurface {
+            val previewName = offer?.channels?.firstOrNull { it.localChannelId == previewing }?.name
+            previewing?.let { previewId ->
+                SportsPreviewStage(
+                    channelId = previewId,
+                    channelName = previewName,
+                    onFullscreen = { offer?.channels?.firstOrNull { it.localChannelId == previewing }?.let { act(it, SportsPanelAction.WATCH) } },
+                    onStop = vm::stopPreview,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
                 Text(
                     leagueLabel(event, league),
@@ -814,7 +918,22 @@ private fun GameDetailsSheet(
             }
             val networks = event.broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }.map { it.name }.distinct()
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = MobileDimens.GapTiny))
-            WhereToWatch(event, offer, refused, opening, onWatch)
+            WhereToWatch(
+                event = event,
+                offer = offer,
+                refused = refused,
+                opening = opening,
+                previewing = previewing,
+                inGrid = { id -> grid.tiles.any { (it.content as? MultiviewContent.Live)?.channel?.id == id } },
+                onAction = ::act,
+                onStopPreview = vm::stopPreview,
+                onOpenMultiview = if (grid.isEmpty) null else {
+                    {
+                        vm.stopPreview()
+                        nav.openMultiview()
+                    }
+                },
+            )
             if (event.venueName != null || networks.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = MobileDimens.GapTiny))
                 event.venueName?.let { DetailLine(stringResource(R.string.sports_details_venue), it) }
@@ -825,16 +944,22 @@ private fun GameDetailsSheet(
 }
 
 /**
- * The game's channels this profile may use, in the backend's ranking, each with Watch. Shows names
- * (as Live TV shows them) and a 4K tag only - never an address, a remote or EPG id, or a match detail.
+ * The game's channels this profile may use, in the backend's ranking, each with Watch, Preview and Add
+ * to Multiview. Shows names (as Live TV shows them), the channel's category underneath — so two feeds
+ * with the same name can be told apart — and a 4K tag; never an address, a remote or EPG id, or a
+ * match detail.
  */
 @Composable
 private fun WhereToWatch(
     event: SportsEvent,
     offer: SportsChannelOffer?,
     refused: SportsWatchRejection?,
-    opening: Long?,
-    onWatch: (VisibleSportsChannel) -> Unit,
+    opening: SportsPendingAction?,
+    previewing: Long?,
+    inGrid: (Long) -> Boolean,
+    onAction: (VisibleSportsChannel, SportsPanelAction) -> Unit,
+    onStopPreview: () -> Unit,
+    onOpenMultiview: (() -> Unit)?,
 ) {
     Text(
         text = stringResource(R.string.sports_where_to_watch),
@@ -867,46 +992,192 @@ private fun WhereToWatch(
         Text(message.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
-    for (channel in offer.channels) {
-        WatchRow(channel, opening = opening == channel.localChannelId, enabled = opening == null, onWatch = { onWatch(channel) })
+    offer.channels.forEachIndexed { index, channel ->
+        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        WatchRow(
+            channel = channel,
+            opening = opening?.takeIf { it.localChannelId == channel.localChannelId }?.action,
+            busy = opening != null,
+            previewing = previewing == channel.localChannelId,
+            inGrid = inGrid(channel.localChannelId),
+            onAction = { onAction(channel, it) },
+            onStopPreview = onStopPreview,
+        )
+    }
+    if (onOpenMultiview != null) {
+        MobileButton(
+            text = stringResource(R.string.multiview_open),
+            onClick = onOpenMultiview,
+            style = MobileButtonStyle.TEXT,
+        )
     }
 }
 
+/**
+ * One channel: its name and category, a 4K tag, and its three actions. The actions wrap onto as many
+ * lines as the width needs, so all three stay whole and reachable on a narrow phone and in landscape.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WatchRow(channel: VisibleSportsChannel, opening: Boolean, enabled: Boolean, onWatch: () -> Unit) {
-    val watchLabel = stringResource(R.string.sports_watch_a11y, channel.name)
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
+private fun WatchRow(
+    channel: VisibleSportsChannel,
+    opening: SportsPanelAction?,
+    busy: Boolean,
+    previewing: Boolean,
+    inGrid: Boolean,
+    onAction: (SportsPanelAction) -> Unit,
+    onStopPreview: () -> Unit,
+) {
+    val label = SportsChannelLabel.of(channel)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(MobileDimens.GapTiny)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = label.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                label.category?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (label.uhd) {
+                Text(
+                    text = stringResource(R.string.sports_watch_uhd),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
+            verticalArrangement = Arrangement.spacedBy(MobileDimens.GapTiny),
+        ) {
+            val watchLabel = stringResource(R.string.sports_watch_a11y, label.name)
+            MobileButton(
+                text = stringResource(if (opening == SportsPanelAction.WATCH) R.string.sports_watch_opening else R.string.sports_watch),
+                onClick = { onAction(SportsPanelAction.WATCH) },
+                enabled = !busy,
+                modifier = Modifier.semantics { contentDescription = watchLabel },
+            )
+            if (previewing) {
+                val stopLabel = stringResource(R.string.sports_preview_stop_a11y, label.name)
+                MobileButton(
+                    text = stringResource(R.string.sports_preview_stop),
+                    onClick = onStopPreview,
+                    style = MobileButtonStyle.SECONDARY,
+                    modifier = Modifier.semantics { contentDescription = stopLabel },
+                )
+            } else {
+                val previewLabel = stringResource(R.string.sports_preview_a11y, label.name)
+                MobileButton(
+                    text = stringResource(if (opening == SportsPanelAction.PREVIEW) R.string.sports_watch_opening else R.string.sports_preview),
+                    onClick = { onAction(SportsPanelAction.PREVIEW) },
+                    style = MobileButtonStyle.SECONDARY,
+                    enabled = !busy,
+                    modifier = Modifier.semantics { contentDescription = previewLabel },
+                )
+            }
+            val gridLabel = stringResource(if (inGrid) R.string.sports_multiview_in_grid_a11y else R.string.sports_multiview_add_a11y, label.name)
+            MobileButton(
+                text = stringResource(if (inGrid) R.string.sports_multiview_in_grid else R.string.multiview_add_to),
+                onClick = { onAction(SportsPanelAction.MULTIVIEW) },
+                style = MobileButtonStyle.TEXT,
+                enabled = !busy && !inGrid,
+                modifier = Modifier.semantics { contentDescription = gridLabel },
+            )
+        }
+    }
+}
+
+/**
+ * The Preview: the app's one stream, shown inside the game's panel (the same picture Live TV's preview
+ * and the Sports Channels tab draw, from the same engine — ExoPlayer or mpv). A spinner until it plays,
+ * the engine's own words and Retry when it fails, Stop, and full screen (which is Watch, carrying the
+ * same stream on).
+ */
+@Composable
+private fun SportsPreviewStage(channelId: Long, channelName: String?, onFullscreen: () -> Unit, onStop: () -> Unit) {
+    val tuner: LiveTuner = koinInject()
+    val tuned by tuner.channel.collectAsStateWithLifecycle()
+    val engine by tuner.activeEngine.collectAsStateWithLifecycle()
+    val isPlaying by engine.isPlaying.collectAsStateWithLifecycle()
+    val failure by engine.error.collectAsStateWithLifecycle()
+    val res = LocalResources.current
+    val showing = tuned?.id == channelId
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(RoundedCornerShape(MobileDimens.CardCorner))
+            .background(Color.Black),
     ) {
-        Text(
-            text = channel.name,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        if (channel.uhd) {
+        if (showing) VideoStage(player = tuner.player, modifier = Modifier.fillMaxSize())
+        if (!showing || (!isPlaying && failure == null)) {
+            val loading = stringResource(R.string.sports_loading)
+            CircularProgressIndicator(Modifier.align(Alignment.Center).semantics { contentDescription = loading }, color = Color.White)
+        }
+        val problem = failure
+        if (showing && problem != null) {
+            Column(
+                Modifier
+                    .align(Alignment.Center)
+                    .padding(MobileDimens.GapMedium)
+                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                    .padding(MobileDimens.GapSmall),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = problem.describe { id, args -> res.getString(id, *args.toTypedArray()) },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                )
+                MobileButton(text = stringResource(R.string.common_retry), onClick = engine::retry, style = MobileButtonStyle.TEXT)
+            }
+        }
+        if (showing && isPlaying) {
             Text(
-                text = stringResource(R.string.sports_watch_uhd),
+                text = stringResource(R.string.live_badge_label),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .background(LIVE_RED, RoundedCornerShape(4.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        MobileButton(
-            text = stringResource(if (opening) R.string.sports_watch_opening else R.string.sports_watch),
-            onClick = onWatch,
-            enabled = enabled,
-            modifier = Modifier.semantics { contentDescription = watchLabel },
-        )
+        val stopLabel = stringResource(R.string.sports_preview_stop_a11y, channelName.orEmpty())
+        IconButton(
+            onClick = onStop,
+            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape),
+        ) {
+            Icon(MobileIcons.Close, contentDescription = stopLabel, tint = Color.White)
+        }
+        IconButton(
+            onClick = onFullscreen,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp).background(Color.Black.copy(alpha = 0.5f), CircleShape),
+        ) {
+            Icon(MobileIcons.OpenInFull, contentDescription = stringResource(R.string.sports_open_fullscreen), tint = Color.White)
+        }
     }
 }
 

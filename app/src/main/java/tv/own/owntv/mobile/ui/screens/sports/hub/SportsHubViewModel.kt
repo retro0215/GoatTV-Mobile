@@ -35,8 +35,8 @@ import java.time.ZoneId
 /**
  * The Sports hub's schedule side: Live & Today, Schedule and Leagues, all for the chosen sport, and
  * how many channels each game has for the ACTIVE profile. [watch] plays one of a game's channels in
- * the app's one [LiveTuner], only after [SportsChannelAccess.checkWatch] allows it; nothing here
- * previews or adds to Multiview.
+ * the app's one [LiveTuner], [preview] shows it inside the details panel on that same stream, and
+ * [checkForMultiview] clears it for the grid — each only after [SportsChannelAccess.checkWatch] allows it.
  *
  * The store is app-wide; this only reads it, and [runPolling] lends the screen's lifecycle to it. The
  * screen says what it shows through [show]; a tab that is not showing loads nothing (its last result is
@@ -174,7 +174,46 @@ class SportsHubViewModel(
      * being checked, or the screen left before it could start.
      */
     suspend fun watch(event: SportsEvent, chosen: VisibleSportsChannel, offeredTo: Long?, title: String, canStart: () -> Boolean): SportsWatchCheck? =
-        launcher.watch(event, chosen, offeredTo, title, canStart)
+        launcher.run(event, chosen, offeredTo, canStart) { allowed ->
+            tuner.tune(allowed.channel.id, LiveTuner.ZapList(title, allowed.zapChannels))
+            // A channel being previewed carries on full screen as the same stream (the tuner does not
+            // reopen it); from here the player owns it, and nothing in the panel may stop it.
+            preview.handedToPlayer()
+        }
+
+    private val preview = SportsPreviewOwner(
+        playingChannelId = { tuner.channel.value?.id },
+        stop = { tuner.stopPlayback(clearChannel = true) },
+    )
+
+    /** The channel the details panel is previewing (local id), or null. */
+    val previewing: StateFlow<Long?> = preview.owned
+
+    /**
+     * Preview [chosen] inside the details panel: decided again exactly as Watch is, then the app's one
+     * stream — the tuner's, the same one Live TV and the Sports Channels tab preview on — shows it in the
+     * panel, with the game's channels as its zap list should it go full screen. Another Preview replaces
+     * it (one stream, one decoder); nothing starts unless the screen is in front.
+     */
+    suspend fun preview(event: SportsEvent, chosen: VisibleSportsChannel, offeredTo: Long?, title: String, canStart: () -> Boolean): SportsWatchCheck? =
+        launcher.run(event, chosen, offeredTo, canStart) { allowed ->
+            tuner.tune(allowed.channel.id, LiveTuner.ZapList(title, allowed.zapChannels))
+            preview.started(allowed.channel.id)
+        }
+
+    /** The panel closed, Sports was left or went to the background, or Multiview is opening. */
+    fun stopPreview() = preview.release()
+
+    /**
+     * Add to Multiview, first step: the same fresh decision as Watch. On success the caller adds the
+     * returned channel row (the database's, never the backend's) to the grid under the grid's rules.
+     */
+    suspend fun checkForMultiview(event: SportsEvent, chosen: VisibleSportsChannel, offeredTo: Long?, canStart: () -> Boolean): SportsWatchCheck? =
+        launcher.run(event, chosen, offeredTo, canStart) { }
+
+    override fun onCleared() {
+        preview.release()
+    }
 
     private fun latest(event: SportsEvent): SportsEvent = SportsLatestEvent.pick(
         event,

@@ -141,6 +141,14 @@
     <string name="sports_watch_no_matches">No channels in your playlist are matched to this game yet.</string>
     <string name="sports_watch_unavailable">That channel isn’t available anymore. The list below is up to date.</string>
     <string name="sports_watch_profile_changed">The profile changed, so the channels were checked again for this profile.</string>
+    <string name="sports_preview">Preview</string>
+    <string name="sports_preview_stop">Stop preview</string>
+    <string name="sports_preview_a11y">Preview %1$s</string>
+    <string name="sports_preview_stop_a11y">Stop previewing %1$s</string>
+    <string name="sports_multiview_in_grid">In Multiview</string>
+    <string name="sports_multiview_in_grid_a11y">%1$s is in Multiview</string>
+    <string name="sports_multiview_add_a11y">Add %1$s to Multiview</string>
+    <string name="sports_multiview_already">Already in Multiview</string>
     <string name="sports_details_venue">Venue</string>
     <string name="sports_details_checking">Checking your channels</string>
     <string name="sports_details_none_allowed">None of this game’s channels are available for this profile.</string>

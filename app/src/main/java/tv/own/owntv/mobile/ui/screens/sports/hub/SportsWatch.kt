@@ -32,13 +32,28 @@ class SportsWatchLauncher(
         offeredTo: Long?,
         title: String,
         canStart: () -> Boolean,
+    ): SportsWatchCheck? = run(event, chosen, offeredTo, canStart) { allowed ->
+        tune(allowed.channel.id, LiveTuner.ZapList(title, allowed.zapChannels))
+    }
+
+    /**
+     * Any of the panel's actions — Watch, Preview, Add to Multiview — on the same terms: [check] first,
+     * [onAllowed] only when it allows the channel and the screen is still in front, one action at a
+     * time (null for a second one while the first is being checked, or when the screen left).
+     */
+    suspend fun run(
+        event: SportsEvent,
+        chosen: VisibleSportsChannel,
+        offeredTo: Long?,
+        canStart: () -> Boolean,
+        onAllowed: (SportsWatchCheck.Allowed) -> Unit,
     ): SportsWatchCheck? {
         if (!busy.compareAndSet(false, true)) return null
         try {
             val result = check(event, chosen, offeredTo)
             if (result is SportsWatchCheck.Allowed) {
                 if (!canStart()) return null
-                tune(result.channel.id, LiveTuner.ZapList(title, result.zapChannels))
+                onAllowed(result)
             }
             return result
         } finally {
@@ -73,5 +88,88 @@ enum class SportsWatchNext {
             is SportsWatchCheck.Rejected -> SHOW_REFUSAL
             null -> NOTHING
         }
+    }
+}
+
+/**
+ * Who owns the stream a Sports Preview started (unit-tested). There is one tuner and one stream in the
+ * app; a Preview is that stream shown inside the game's panel. This remembers which channel the panel
+ * put there, so it can take it back — and only that: a stream someone else started (the mini player,
+ * Live TV, a Watch already handed to the player) is never stopped from here.
+ *
+ *  - [started]: a Preview tuned [channelId]; the panel owns it.
+ *  - [handedToPlayer]: Watch took the same stream full screen (no reopen); the player owns it now.
+ *  - [release]: the panel closed, Sports was left, the app went to the background, Multiview is
+ *    opening: stop the stream if it is still the one this panel started.
+ */
+class SportsPreviewOwner(
+    private val playingChannelId: () -> Long?,
+    private val stop: () -> Unit,
+) {
+    private val _owned = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
+
+    /** The channel the panel is previewing, or null. */
+    val owned: kotlinx.coroutines.flow.StateFlow<Long?> = _owned
+
+    fun started(channelId: Long) {
+        _owned.value = channelId
+    }
+
+    fun handedToPlayer() {
+        _owned.value = null
+    }
+
+    fun release() {
+        val mine = _owned.value ?: return
+        _owned.value = null
+        if (playingChannelId() == mine) stop()
+    }
+}
+
+/** What Add to Multiview does with a channel the access check allowed (pure). */
+enum class SportsMultiviewAdd {
+    /** Add it: a new tile at the end. Its stream opens when the grid is opened, under the grid's limits. */
+    ADD,
+
+    /** The fifth-tile performance warning first (the grid's own rule), then add. */
+    WARN_FIRST,
+
+    /** It is already a tile: nothing to add (the grid never holds a channel twice). */
+    ALREADY_THERE,
+
+    /** All tiles are taken: say so, add nothing. */
+    FULL;
+
+    companion object {
+        fun decide(alreadyThere: Boolean, isFull: Boolean, shouldWarn: () -> Boolean): SportsMultiviewAdd = when {
+            alreadyThere -> ALREADY_THERE
+            isFull -> FULL
+            shouldWarn() -> WARN_FIRST
+            else -> ADD
+        }
+    }
+}
+
+/** Where the hub's panels lead: the full screen player, and the Multiview grid. */
+class SportsHubNav(val openPlayer: () -> Unit, val openMultiview: () -> Unit)
+
+/** The three things a Where to Watch row does. */
+enum class SportsPanelAction { WATCH, PREVIEW, MULTIVIEW }
+
+/** The action being decided right now, and for which row. */
+data class SportsPendingAction(val localChannelId: Long, val action: SportsPanelAction)
+
+/**
+ * A Where to Watch row as shown (pure): the channel's name as Live TV shows it, its category underneath
+ * — how two channels of the same name are told apart — and the 4K tag. A category that is blank or only
+ * repeats the name is left out. Nothing else of the channel is shown.
+ */
+data class SportsChannelLabel(val name: String, val category: String?, val uhd: Boolean) {
+    companion object {
+        fun of(channel: VisibleSportsChannel): SportsChannelLabel = SportsChannelLabel(
+            name = channel.name,
+            category = channel.category?.trim()?.takeIf { it.isNotEmpty() && !it.equals(channel.name.trim(), ignoreCase = true) },
+            uhd = channel.uhd,
+        )
     }
 }
