@@ -26,13 +26,17 @@ import tv.own.owntv.mobile.sports.live.SportsLeague
 import tv.own.owntv.mobile.sports.live.SportsLiveState
 import tv.own.owntv.mobile.sports.live.SportsLiveStore
 import tv.own.owntv.mobile.sports.live.SportsScheduleRepository
+import tv.own.owntv.mobile.sports.live.SportsWatchCheck
+import tv.own.owntv.mobile.sports.live.VisibleSportsChannel
+import tv.own.owntv.mobile.ui.screens.live.LiveTuner
 import java.time.LocalDate
 import java.time.ZoneId
 
 /**
  * The Sports hub's schedule side: Live & Today, Schedule and Leagues, all for the chosen sport, and
- * how many channels each game has for the ACTIVE profile. Read-only — nothing here plays, previews or
- * adds to Multiview.
+ * how many channels each game has for the ACTIVE profile. [watch] plays one of a game's channels in
+ * the app's one [LiveTuner], only after [SportsChannelAccess.checkWatch] allows it; nothing here
+ * previews or adds to Multiview.
  *
  * The store is app-wide; this only reads it, and [runPolling] lends the screen's lifecycle to it. The
  * screen says what it shows through [show]; a tab that is not showing loads nothing (its last result is
@@ -53,6 +57,7 @@ class SportsHubViewModel(
     private val settings: SettingsRepository,
     private val customize: CustomizationStore,
     private val profileDao: ProfileDao,
+    private val tuner: LiveTuner,
 ) : ViewModel() {
 
     private val query = MutableStateFlow<SportsHubQuery?>(null)
@@ -154,6 +159,27 @@ class SportsHubViewModel(
     /** Keeps the schedule fresh while [active] (the hub's STARTED lifecycle, on a schedule tab) is true. */
     suspend fun runPolling(active: Flow<Boolean>) = store.runWhileActive(active)
 
-    /** One game's allowed channels for the read-only details panel, decided afresh. */
+    /** One game's allowed channels for the details panel, decided afresh. */
     suspend fun channelsFor(event: SportsEvent): SportsChannelOffer = access.offer(event)
+
+    private val launcher = SportsWatchLauncher(
+        check = { event, chosen, offeredTo -> access.checkWatch(latest(event), chosen, offeredTo) },
+        tune = { id, zap -> tuner.tune(id, zap) },
+    )
+
+    /**
+     * Watch [chosen] for [event]: decided again right now, against the game's newest copy and the
+     * profile the channels were offered to; on success the app's one tuner has the channel (and the
+     * game's channels as its zap list) and the caller opens the player. Null when a Watch was already
+     * being checked, or the screen left before it could start.
+     */
+    suspend fun watch(event: SportsEvent, chosen: VisibleSportsChannel, offeredTo: Long?, title: String, canStart: () -> Boolean): SportsWatchCheck? =
+        launcher.watch(event, chosen, offeredTo, title, canStart)
+
+    private fun latest(event: SportsEvent): SportsEvent = SportsLatestEvent.pick(
+        event,
+        (store.state.value as? SportsLiveState.Content)?.slate?.eventsById?.get(event.id),
+        (schedule.value as? SportsScheduleUiState.Content)?.games?.firstOrNull { it.id == event.id },
+        (leagueGames.value as? SportsLeagueGamesUiState.Content)?.games?.firstOrNull { it.id == event.id },
+    )
 }

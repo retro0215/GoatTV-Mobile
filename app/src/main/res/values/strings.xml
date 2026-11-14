@@ -133,7 +133,14 @@
     <string name="sports_today_empty">No games live or coming up today.</string>
     <string name="sports_details_action">Game details</string>
     <string name="sports_details_on_tv">On TV</string>
-    <string name="sports_details_your_channels">In your playlist</string>
+    <string name="sports_where_to_watch">Where to watch</string>
+    <string name="sports_watch">Watch</string>
+    <string name="sports_watch_opening">Opening…</string>
+    <string name="sports_watch_a11y">Watch on %1$s</string>
+    <string name="sports_watch_uhd">4K</string>
+    <string name="sports_watch_no_matches">No channels in your playlist are matched to this game yet.</string>
+    <string name="sports_watch_unavailable">That channel isn’t available anymore. The list below is up to date.</string>
+    <string name="sports_watch_profile_changed">The profile changed, so the channels were checked again for this profile.</string>
     <string name="sports_details_venue">Venue</string>
     <string name="sports_details_checking">Checking your channels</string>
     <string name="sports_details_none_allowed">None of this game’s channels are available for this profile.</string>

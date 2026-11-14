@@ -80,6 +80,32 @@ enum class SportsAccessIssue {
     PROFILE_CHANGED,
 }
 
+/** [SportsChannelAccess.checkWatch]: play [channel], with [zapChannels] as the list around it — or nothing. */
+sealed interface SportsWatchCheck {
+    class Allowed(
+        /** The chosen feed's local row as it is now. */
+        val channel: ChannelEntity,
+        /** Every channel this profile may use for the game, in backend rank order (includes [channel]). */
+        val zapChannels: List<ChannelEntity>,
+        val profileId: Long?,
+    ) : SportsWatchCheck {
+        // A channel row carries its stream address; nothing that logs this may print it.
+        override fun toString(): String = "Allowed(${channel.name}, ${zapChannels.size} channels)"
+    }
+
+    data class Rejected(val reason: SportsWatchRejection) : SportsWatchCheck
+}
+
+enum class SportsWatchRejection {
+    /** Hidden, blocked, gone from the playlist, or no longer listed for the game. */
+    NO_LONGER_AVAILABLE,
+    /** Another profile is active than the one the channels were offered to. */
+    PROFILE_CHANGED,
+    NO_PROFILE,
+    NO_ELIGIBLE_PLAYLIST,
+    SEVERAL_PLAYLISTS,
+}
+
 /** [SportsChannelAccess.offerAll]: every game's offer from one snapshot of [profileId]. */
 data class SportsChannelOffers(
     val profileId: Long?,
@@ -124,9 +150,33 @@ class SportsChannelAccess(private val data: SportsAccessData) {
      * whole resolution runs again — after a playlist refresh the same feed may come back as a new local
      * row, and that fresh row is what is returned. Never a substitute channel.
      */
-    suspend fun revalidate(event: SportsEvent, chosen: VisibleSportsChannel): ChannelEntity? {
+    suspend fun revalidate(event: SportsEvent, chosen: VisibleSportsChannel): ChannelEntity? =
+        (checkWatch(event, chosen, expectedProfileId = null) as? SportsWatchCheck.Allowed)?.channel
+
+    /**
+     * [revalidate] for Watch, from ONE decision: the chosen feed's current local row, and every channel
+     * this profile may use for the game right now — fresh rows, backend rank order — as the list the
+     * player zaps through. Rejected (and nothing to play) when the feed is no longer allowed or no
+     * longer listed for [event], when no playlist can be used, or when the active profile is not
+     * [expectedProfileId], the profile the customer saw the offer for: a channel offered to one
+     * profile is never played for another, even where that one would also allow it.
+     */
+    suspend fun checkWatch(event: SportsEvent, chosen: VisibleSportsChannel, expectedProfileId: Long?): SportsWatchCheck {
         val decision = decide(event.channels)
-        return decision.playable.firstOrNull { it.first.backendChannelId == chosen.backendChannelId }?.second
+        val offer = decision.offer
+        when (offer.issue) {
+            null -> Unit
+            SportsAccessIssue.NO_PROFILE -> return SportsWatchCheck.Rejected(SportsWatchRejection.NO_PROFILE)
+            SportsAccessIssue.NO_ELIGIBLE_PLAYLIST -> return SportsWatchCheck.Rejected(SportsWatchRejection.NO_ELIGIBLE_PLAYLIST)
+            SportsAccessIssue.SEVERAL_PLAYLISTS -> return SportsWatchCheck.Rejected(SportsWatchRejection.SEVERAL_PLAYLISTS)
+            SportsAccessIssue.PROFILE_CHANGED -> return SportsWatchCheck.Rejected(SportsWatchRejection.PROFILE_CHANGED)
+        }
+        if (expectedProfileId != null && offer.profileId != expectedProfileId) {
+            return SportsWatchCheck.Rejected(SportsWatchRejection.PROFILE_CHANGED)
+        }
+        val chosenRow = decision.playable.firstOrNull { it.first.backendChannelId == chosen.backendChannelId }?.second
+            ?: return SportsWatchCheck.Rejected(SportsWatchRejection.NO_LONGER_AVAILABLE)
+        return SportsWatchCheck.Allowed(chosenRow, decision.playable.map { it.second }, offer.profileId)
     }
 
     /**

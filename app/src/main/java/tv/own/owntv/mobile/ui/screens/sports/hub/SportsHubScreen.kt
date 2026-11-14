@@ -33,8 +33,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -67,6 +70,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.sports.live.SportsAccessIssue
@@ -75,6 +79,10 @@ import tv.own.owntv.mobile.sports.live.SportsEvent
 import tv.own.owntv.mobile.sports.live.SportsEventStatus
 import tv.own.owntv.mobile.sports.live.SportsLeague
 import tv.own.owntv.mobile.sports.live.SportsTeam
+import tv.own.owntv.mobile.sports.live.SportsWatchCheck
+import tv.own.owntv.mobile.sports.live.SportsWatchRejection
+import tv.own.owntv.mobile.sports.live.VisibleSportsChannel
+import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.ChannelLogoImage
 import tv.own.owntv.mobile.ui.components.FilterChipRow
 import tv.own.owntv.mobile.ui.components.MobileBottomSheet
@@ -101,8 +109,8 @@ private val SelectionSaver = listSaver<SportsHubSelection, Any?>(
  * playback, Multiview and lifecycle are its own).
  *
  * The tab, the sport, the Schedule's day and the open league are one saved selection, shared by the
- * tabs and kept across rotation. The schedule tabs are read-only for now: a card opens a details panel,
- * and nothing in it plays.
+ * tabs and kept across rotation. A card opens a details panel whose Where to Watch list plays a channel
+ * in the full screen player (Watch); Back from the player returns to the panel.
  */
 @Composable
 fun SportsHubScreen(
@@ -158,8 +166,8 @@ fun SportsHubScreen(
         }
         val pane = Modifier.weight(1f).fillMaxWidth()
         when (selection.tab) {
-            SportsHubTab.LIVE_TODAY -> LiveTodayPane(vm, scrollToTop, pane)
-            SportsHubTab.SCHEDULE -> SchedulePane(vm, days, day, onSelectDay = { selection = selection.copy(epochDay = it.toEpochDay()) }, scrollToTop, pane)
+            SportsHubTab.LIVE_TODAY -> LiveTodayPane(vm, scrollToTop, onOpenPlayer, pane)
+            SportsHubTab.SCHEDULE -> SchedulePane(vm, days, day, onSelectDay = { selection = selection.copy(epochDay = it.toEpochDay()) }, scrollToTop, onOpenPlayer, pane)
             SportsHubTab.LEAGUES -> LeaguesPane(
                 vm = vm,
                 leagues = leagues,
@@ -167,6 +175,7 @@ fun SportsHubScreen(
                 openLeagueId = leagueId,
                 onOpenLeague = { selection = selection.copy(leagueId = it) },
                 scrollToTop = scrollToTop,
+                onOpenPlayer = onOpenPlayer,
                 modifier = pane,
             )
             SportsHubTab.CHANNELS -> SportsScreen(
@@ -208,6 +217,36 @@ private fun cardsAcross(maxWidth: Dp): Int = ((maxWidth - MobileDimens.ScreenPad
 private val ListPadding = PaddingValues(start = MobileDimens.ScreenPaddingH, end = MobileDimens.ScreenPaddingH, bottom = MobileDimens.GapMedium)
 
 /** What a game card needs besides the game: its league, this profile's channel count, and opening it. */
+/**
+ * The game whose details are open. Its id is saved, so the panel comes back after the player (Watch,
+ * then Back) and after a rotation, showing the game's newest copy; the copy tapped is kept for as long
+ * as the screen lives, for a game that has since left the list.
+ */
+private class OpenGame(private val id: MutableState<String?>) {
+    private var tapped by mutableStateOf<SportsEvent?>(null)
+
+    fun open(event: SportsEvent) {
+        tapped = event
+        id.value = event.id
+    }
+
+    fun close() {
+        tapped = null
+        id.value = null
+    }
+
+    fun current(shown: List<SportsEvent>): SportsEvent? {
+        val open = id.value ?: return null
+        return shown.firstOrNull { it.id == open } ?: tapped?.takeIf { it.id == open }
+    }
+}
+
+@Composable
+private fun rememberOpenGame(): OpenGame {
+    val id = rememberSaveable { mutableStateOf<String?>(null) }
+    return remember(id) { OpenGame(id) }
+}
+
 /** Whether Live & Today's list is at its top, followed outside composition (not snapshot state). */
 private class SportsListPosition {
     var atTop: Boolean = true
@@ -248,13 +287,13 @@ private fun LoadingBox(modifier: Modifier) {
 }
 
 @Composable
-private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String>, modifier: Modifier = Modifier) {
+private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String>, onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
     val state by vm.today.collectAsStateWithLifecycle()
     val counts by vm.counts.collectAsStateWithLifecycle()
     val profileId by vm.activeProfileId.collectAsStateWithLifecycle()
     val leagues by vm.leagues.collectAsStateWithLifecycle()
     val byId = remember(leagues) { leagues.associateBy { it.id } }
-    var details by remember { mutableStateOf<SportsEvent?>(null) }
+    val details = rememberOpenGame()
     val listState = rememberLazyListState()
     listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
 
@@ -280,7 +319,7 @@ private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String
         }
         is SportsTodayUiState.Content -> BoxWithConstraints(modifier) {
             val across = cardsAcross(maxWidth)
-            val ctx = CardContext(s.leagues, counts, profileId) { details = it }
+            val ctx = CardContext(s.leagues, counts, profileId) { details.open(it) }
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = ListPadding, verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
                 if (s.stale) item(key = "stale") { StaleNotice() }
                 for (section in s.sections) {
@@ -291,10 +330,9 @@ private fun LiveTodayPane(vm: SportsHubViewModel, scrollToTop: SharedFlow<String
         }
     }
 
-    details?.let { opened ->
-        // The open panel follows the game: its clock and score update with each refresh.
-        val game = SportsLiveClock.latest(opened, (state as? SportsTodayUiState.Content)?.sections?.flatMap { it.games }.orEmpty())
-        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onDismiss = { details = null })
+    // The open panel follows the game: its clock and score update with each refresh.
+    details.current((state as? SportsTodayUiState.Content)?.sections?.flatMap { it.games }.orEmpty())?.let { game ->
+        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onOpenPlayer, onDismiss = details::close)
     }
 }
 
@@ -305,6 +343,7 @@ private fun SchedulePane(
     day: LocalDate,
     onSelectDay: (LocalDate) -> Unit,
     scrollToTop: SharedFlow<String>,
+    onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by vm.schedule.collectAsStateWithLifecycle()
@@ -312,7 +351,7 @@ private fun SchedulePane(
     val profileId by vm.activeProfileId.collectAsStateWithLifecycle()
     val leagues by vm.leagues.collectAsStateWithLifecycle()
     val byId = remember(leagues) { leagues.associateBy { it.id } }
-    var details by remember { mutableStateOf<SportsEvent?>(null) }
+    val details = rememberOpenGame()
     Column(modifier) {
         FilterChipRow(
             labels = days.map { dayChipLabel(it) },
@@ -329,7 +368,7 @@ private fun SchedulePane(
                 val listState = rememberLazyListState()
                 listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
                 val across = cardsAcross(maxWidth)
-                val ctx = CardContext(byId, counts, profileId) { details = it }
+                val ctx = CardContext(byId, counts, profileId) { details.open(it) }
                 LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = ListPadding, verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
                     item(key = "day") { SectionHeader(dayTitle(day), large = true) }
                     if (s.partial) item(key = "partial") { NoticeText(stringResource(R.string.sports_schedule_partial)) }
@@ -342,9 +381,8 @@ private fun SchedulePane(
         }
     }
 
-    details?.let { opened ->
-        val game = SportsLiveClock.latest(opened, (state as? SportsScheduleUiState.Content)?.games.orEmpty())
-        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onDismiss = { details = null })
+    details.current((state as? SportsScheduleUiState.Content)?.games.orEmpty())?.let { game ->
+        GameDetailsSheet(game, byId[game.leagueId], vm, profileId, onOpenPlayer, onDismiss = details::close)
     }
 }
 
@@ -356,6 +394,7 @@ private fun LeaguesPane(
     openLeagueId: String?,
     onOpenLeague: (String?) -> Unit,
     scrollToTop: SharedFlow<String>,
+    onOpenPlayer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val today by vm.today.collectAsStateWithLifecycle()
@@ -363,7 +402,7 @@ private fun LeaguesPane(
     listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
     if (openLeagueId != null) {
         val league = leagues.first { it.id == openLeagueId }
-        LeagueGames(vm, league, onBack = { onOpenLeague(null) }, scrollToTop, modifier)
+        LeagueGames(vm, league, onBack = { onOpenLeague(null) }, scrollToTop, onOpenPlayer, modifier)
         return
     }
     val groups = SportsLeaguesModel.groups(leagues, sport)
@@ -404,12 +443,19 @@ private fun LeagueRow(league: SportsLeague, onOpen: () -> Unit) {
 
 /** One league's games from yesterday to a week ahead, by day, with the same cards as Live & Today. */
 @Composable
-private fun LeagueGames(vm: SportsHubViewModel, league: SportsLeague, onBack: () -> Unit, scrollToTop: SharedFlow<String>, modifier: Modifier) {
+private fun LeagueGames(
+    vm: SportsHubViewModel,
+    league: SportsLeague,
+    onBack: () -> Unit,
+    scrollToTop: SharedFlow<String>,
+    onOpenPlayer: () -> Unit,
+    modifier: Modifier,
+) {
     BackHandler(onBack = onBack)
     val state by vm.leagueGames.collectAsStateWithLifecycle()
     val counts by vm.counts.collectAsStateWithLifecycle()
     val profileId by vm.activeProfileId.collectAsStateWithLifecycle()
-    var details by remember { mutableStateOf<SportsEvent?>(null) }
+    val details = rememberOpenGame()
     val leaguesById = remember(league) { mapOf(league.id to league) }
 
     Column(modifier) {
@@ -427,7 +473,7 @@ private fun LeagueGames(vm: SportsHubViewModel, league: SportsLeague, onBack: ()
                 val listState = rememberLazyListState()
                 listState.ObeyScrollToTop(route = MobileDestination.SPORTS.route, scrollToTop = scrollToTop)
                 val across = cardsAcross(maxWidth)
-                val ctx = CardContext(leaguesById, counts, profileId) { details = it }
+                val ctx = CardContext(leaguesById, counts, profileId) { details.open(it) }
                 LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = ListPadding, verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
                     for (section in s.days) {
                         item(key = "d:${section.day}") { SectionHeader(dayTitle(section.day)) }
@@ -438,9 +484,8 @@ private fun LeagueGames(vm: SportsHubViewModel, league: SportsLeague, onBack: ()
         }
     }
 
-    details?.let { opened ->
-        val game = SportsLiveClock.latest(opened, (state as? SportsLeagueGamesUiState.Content)?.games.orEmpty())
-        GameDetailsSheet(game, league, vm, profileId, onDismiss = { details = null })
+    details.current((state as? SportsLeagueGamesUiState.Content)?.games.orEmpty())?.let { game ->
+        GameDetailsSheet(game, league, vm, profileId, onOpenPlayer, onDismiss = details::close)
     }
 }
 
@@ -695,18 +740,51 @@ private fun ChannelAvailability(event: SportsEvent, count: Int?) {
 
 private fun leagueLabel(event: SportsEvent, league: SportsLeague?): String = league?.shortName ?: event.leagueId.uppercase()
 
-/** Read-only: what, when, where, which networks, and which of this profile's channels carry it. */
+/** What, when, where, which networks, and Where to Watch: this profile's channels for it, each with Watch. */
 @Composable
-private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: SportsHubViewModel, profileId: Long, onDismiss: () -> Unit) {
+private fun GameDetailsSheet(
+    event: SportsEvent,
+    league: SportsLeague?,
+    vm: SportsHubViewModel,
+    profileId: Long,
+    onOpenPlayer: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val title = run {
         val away = event.away
         val home = event.home
         if (away != null && home != null) stringResource(R.string.sports_matchup, away.name, home.name) else event.title.orEmpty()
     }
-    // Decided afresh when the panel opens, and again if the active profile changes while it is open.
-    val offer by produceState<SportsChannelOffer?>(initialValue = null, event.id, event.channels, profileId) {
+    // Decided afresh when the panel opens, again if the active profile or the game's channels change
+    // while it is open, and again after a Watch was refused (the list then shows what is allowed now).
+    var recheck by remember(event.id) { mutableIntStateOf(0) }
+    val offer by produceState<SportsChannelOffer?>(initialValue = null, event.id, event.channels, profileId, recheck) {
         value = null
         value = vm.channelsFor(event)
+    }
+    var refused by remember(event.id) { mutableStateOf<SportsWatchRejection?>(null) }
+    var opening by remember(event.id) { mutableStateOf<Long?>(null) }
+    val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val onWatch: (VisibleSportsChannel) -> Unit = watch@{ chosen ->
+        val shown = offer ?: return@watch
+        if (opening != null) return@watch
+        opening = chosen.localChannelId
+        refused = null
+        scope.launch {
+            // Decided again at this moment; nothing plays unless it is still allowed, still listed for
+            // the game, for the profile it was offered to - and the screen is still in front.
+            val result = vm.watch(event, chosen, shown.profileId, title) { lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+            opening = null
+            when (SportsWatchNext.after(result)) {
+                SportsWatchNext.OPEN_PLAYER -> onOpenPlayer()
+                SportsWatchNext.SHOW_REFUSAL -> {
+                    refused = (result as SportsWatchCheck.Rejected).reason
+                    recheck++
+                }
+                SportsWatchNext.NOTHING -> Unit
+            }
+        }
     }
     MobileBottomSheet(onDismissRequest = onDismiss, title = title) {
         // The sheet is frosted glass; on the Samsung (1.0.7) the cards behind it still read through its
@@ -735,23 +813,100 @@ private fun GameDetailsSheet(event: SportsEvent, league: SportsLeague?, vm: Spor
                 Text(startLabel(event.startTimeMs), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val networks = event.broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }.map { it.name }.distinct()
-            if (event.venueName != null || networks.isNotEmpty() || event.channels.isNotEmpty()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = MobileDimens.GapTiny))
+            WhereToWatch(event, offer, refused, opening, onWatch)
+            if (event.venueName != null || networks.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = MobileDimens.GapTiny))
                 event.venueName?.let { DetailLine(stringResource(R.string.sports_details_venue), it) }
                 if (networks.isNotEmpty()) DetailLine(stringResource(R.string.sports_details_on_tv), networks.joinToString())
-                if (event.channels.isNotEmpty()) {
-                    val o = offer
-                    val yours = when {
-                        o == null -> stringResource(R.string.sports_details_checking)
-                        o.issue == SportsAccessIssue.SEVERAL_PLAYLISTS -> stringResource(R.string.sports_details_choose_playlist)
-                        o.issue == SportsAccessIssue.NO_ELIGIBLE_PLAYLIST -> stringResource(R.string.sports_details_needs_xtream)
-                        o.issue != null || o.channels.isEmpty() -> stringResource(R.string.sports_details_none_allowed)
-                        else -> o.channels.joinToString { it.name }
-                    }
-                    DetailLine(stringResource(R.string.sports_details_your_channels), yours)
-                }
             }
         }
+    }
+}
+
+/**
+ * The game's channels this profile may use, in the backend's ranking, each with Watch. Shows names
+ * (as Live TV shows them) and a 4K tag only - never an address, a remote or EPG id, or a match detail.
+ */
+@Composable
+private fun WhereToWatch(
+    event: SportsEvent,
+    offer: SportsChannelOffer?,
+    refused: SportsWatchRejection?,
+    opening: Long?,
+    onWatch: (VisibleSportsChannel) -> Unit,
+) {
+    Text(
+        text = stringResource(R.string.sports_where_to_watch),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.semantics { heading() },
+    )
+    refused?.let { reason ->
+        Text(
+            text = stringResource(
+                when (reason) {
+                    SportsWatchRejection.PROFILE_CHANGED -> R.string.sports_watch_profile_changed
+                    else -> R.string.sports_watch_unavailable
+                },
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    val message = when {
+        event.channels.isEmpty() -> stringResource(R.string.sports_watch_no_matches)
+        offer == null -> stringResource(R.string.sports_details_checking)
+        offer.issue == SportsAccessIssue.SEVERAL_PLAYLISTS -> stringResource(R.string.sports_details_choose_playlist)
+        offer.issue == SportsAccessIssue.NO_ELIGIBLE_PLAYLIST -> stringResource(R.string.sports_details_needs_xtream)
+        offer.issue != null || offer.channels.isEmpty() -> stringResource(R.string.sports_details_none_allowed)
+        else -> null
+    }
+    if (message != null || offer == null) {
+        Text(message.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    for (channel in offer.channels) {
+        WatchRow(channel, opening = opening == channel.localChannelId, enabled = opening == null, onWatch = { onWatch(channel) })
+    }
+}
+
+@Composable
+private fun WatchRow(channel: VisibleSportsChannel, opening: Boolean, enabled: Boolean, onWatch: () -> Unit) {
+    val watchLabel = stringResource(R.string.sports_watch_a11y, channel.name)
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
+    ) {
+        Text(
+            text = channel.name,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (channel.uhd) {
+            Text(
+                text = stringResource(R.string.sports_watch_uhd),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+        MobileButton(
+            text = stringResource(if (opening) R.string.sports_watch_opening else R.string.sports_watch),
+            onClick = onWatch,
+            enabled = enabled,
+            modifier = Modifier.semantics { contentDescription = watchLabel },
+        )
     }
 }
 

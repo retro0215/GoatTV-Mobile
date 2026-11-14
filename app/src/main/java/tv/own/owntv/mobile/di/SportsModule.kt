@@ -39,6 +39,7 @@ val sportsModule = module {
         )
     }
     single { SportsChannelAccess(get()) }
-    // Live & Today, Schedule and Leagues: read the store and the schedule, ask SportsChannelAccess for counts; play nothing.
+    // Live & Today, Schedule and Leagues: read the store and the schedule, ask SportsChannelAccess for counts,
+    // and Watch through the app's one LiveTuner after SportsChannelAccess.checkWatch allows it.
     viewModelOf(::SportsHubViewModel)
 }
