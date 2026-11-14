@@ -15,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -375,39 +374,26 @@ private fun TileGrid(
                             if (fullSlot == null) {
                                 Modifier.pointerInput(slot, index, count, pxRects.getOrNull(index)) {
                                     // A long press that then drags is a move; released in place, the
-                                    // menu. Armed only past twice the touch slop — a finger resting on
-                                    // glass still moves a little.
-                                    val slop = viewConfiguration.touchSlop * 2f
-                                    var moved = false
-                                    var travelled = 0f
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = { at ->
-                                            moved = false
-                                            travelled = 0f
+                                    // menu (see detectTileHold for why this is not the stock detector).
+                                    detectTileHold(
+                                        onHold = { at ->
                                             dragSlot = slot
                                             val pr = pxRects.getOrNull(index)
                                             dragPos = Offset((pr?.left ?: 0f) + at.x, (pr?.top ?: 0f) + at.y)
                                         },
-                                        onDrag = { change, amount ->
-                                            change.consume()
-                                            travelled += amount.getDistance()
-                                            if (!moved && travelled > slop) {
-                                                moved = true
-                                                onDragStart(slot)
-                                            }
-                                            dragPos += amount
-                                        },
-                                        onDragEnd = {
-                                            if (!moved) {
-                                                onMenu(slot)
-                                            } else {
-                                                val to = MultiviewGridMath.indexAt(dragPos, pxRects)
-                                                val from = model.displayIndexOf(slot)
-                                                if (to != from) onDrop(from, to)
-                                            }
+                                        onMoveStart = { onDragStart(slot) },
+                                        onMove = { amount -> dragPos += amount },
+                                        onMenu = {
                                             dragSlot = null
+                                            onMenu(slot)
                                         },
-                                        onDragCancel = { dragSlot = null },
+                                        onDrop = {
+                                            val to = MultiviewGridMath.indexAt(dragPos, pxRects)
+                                            val from = model.displayIndexOf(slot)
+                                            dragSlot = null
+                                            if (to != from) onDrop(from, to)
+                                        },
+                                        onCancel = { dragSlot = null },
                                     )
                                 }
                             } else {
