@@ -70,6 +70,7 @@ import tv.own.owntv.mobile.ui.setup.copyPickedFile
 import tv.own.owntv.mobile.ui.theme.LocalAccentOnVideo
 import tv.own.owntv.mobile.ui.theme.glassDialogWindow
 import tv.own.owntv.mobile.ui.screens.library.VodTuner
+import tv.own.owntv.mobile.ui.screens.live.LivePreviewLifecycle
 import tv.own.owntv.mobile.ui.screens.live.LiveTuner
 import tv.own.owntv.player.ErrorInfo
 import tv.own.owntv.player.PlaybackErrorLog
@@ -105,6 +106,13 @@ fun PlayerScreen(
     /** The grid takes over; the channel on screen has already been made its first tile. */
     onOpenMultiview: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Back from here lands on the Live TV preview, which shows this same stream — so a live channel
+     * is left playing there rather than stopped (see [LivePreviewLifecycle.playerBack]).
+     */
+    backLandsOnLivePreview: Boolean = false,
+    /** Leave without stopping and without asking for a mini player: the preview takes the picture. */
+    onBackToLivePreview: () -> Unit = {},
     tuner: LiveTuner = koinInject(),
     vodTuner: VodTuner = koinInject(),
     pip: PipController = koinInject(),
@@ -385,14 +393,32 @@ fun PlayerScreen(
         }
     }
 
-    // Back means "I am finished watching", and it ends the stream. Leaving the player *playing* is
+    // Back means "I am finished watching", and it ends the stream (with one exception, below). Leaving the player *playing* is
     // what the mini-player button and the swipe down are for — both of them say so, and Back does not.
     // A stream that outlived a Back press was the app quietly holding one of the provider's allowed
     // connections open with nothing on screen to say so.
+    // The one exception: Back onto the Live TV preview. The stream is on screen there, so stopping it
+    // only made the preview start the category's first channel — a reconnection to the wrong channel.
     val stopAndExit = {
-        tuner.stop()
-        vodTuner.stop()
-        onExit()
+        val back = LivePreviewLifecycle.playerBack(
+            liveChannelSelected = tuner.channel.value != null,
+            filmPlaying = vodTuner.playing.value != null,
+            casting = cast.engine.value != null,
+            backLandsOnLivePreview = backLandsOnLivePreview,
+            offLiveEdge = tuner.replaying.value || tuner.offsetSec.value != null,
+        )
+        when (back) {
+            LivePreviewLifecycle.PlayerBack.KEEP -> onBackToLivePreview()
+            LivePreviewLifecycle.PlayerBack.KEEP_AT_LIVE_EDGE -> {
+                tuner.goToLive()
+                onBackToLivePreview()
+            }
+            LivePreviewLifecycle.PlayerBack.STOP -> {
+                tuner.stop()
+                vodTuner.stop()
+                onExit()
+            }
+        }
     }
     BackHandler(onBack = stopAndExit)
 

@@ -31,6 +31,13 @@ name: Android CI
 #   MOBILE_CERT_SHA256       the certificate's SHA-256 fingerprint, lowercase hex without colons.
 #                            Every APK is checked against it, so a wrong keystore fails the run
 #                            instead of shipping an APK that cannot update anyone.
+#   SUPABASE_URL             the Supabase project URL Home Promotions read from (secret)
+#   SUPABASE_ANON_KEY        that project's publishable key (sb_publishable_) or legacy anon key
+#                            (secret). Never a sb_secret_ or service_role key: the build refuses
+#                            those (tools/supabase/check_supabase_key.py). It ships inside the APK by
+#                            design, but the repository is public, so it lives here, never in code.
+#                            Release builds fail without these two: an APK built without them shows
+#                            no promotions and says nothing about it.
 # Optional secrets, as before: OWNTV_EDGE_MASTER / OWNTV_EDGE_KEY for the metadata service.
 on:
   push:
@@ -138,6 +145,11 @@ jobs:
           chmod +x ./gradlew
           ./gradlew testGoatStandardDebugUnitTest testAllaccessStandardDebugUnitTest \
             testFivestarStandardDebugUnitTest testSupremeStandardDebugUnitTest --stacktrace
+
+      # The rules that keep a secret or service_role Supabase key out of the APK. Synthetic keys only.
+      - name: Supabase key safeguard tests
+        if: always()
+        run: python3 -m unittest discover -s tools/supabase -p "test_*.py" -v
 
       # abortOnError = true in app/build.gradle.kts, so this fails the job on a lint error.
       - name: Lint
@@ -293,12 +305,26 @@ jobs:
           MOBILE_KEYSTORE_PASSWORD: ${{ secrets.MOBILE_KEYSTORE_PASSWORD }}
           MOBILE_KEY_ALIAS: ${{ secrets.MOBILE_KEY_ALIAS }}
           MOBILE_KEY_PASSWORD: ${{ secrets.MOBILE_KEY_PASSWORD }}
+          # Read by app/build.gradle.kts into BuildConfig for Home Promotions. GitHub masks both.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          set -euo pipefail
+          [ -n "${SUPABASE_URL:-}" ] || { echo "::error::The SUPABASE_URL secret is not set."; exit 1; }
+          [ -n "${SUPABASE_ANON_KEY:-}" ] || { echo "::error::The SUPABASE_ANON_KEY secret is not set."; exit 1; }
+          case "$SUPABASE_URL" in https://*) ;; *) echo "::error::SUPABASE_URL must be an https:// URL."; exit 1 ;; esac
+          # Only a publishable or legacy anon key may ship in the APK; never a secret or service_role
+          # key. Reads the key from the environment and never prints it. Gradle checks it again.
+          python3 tools/supabase/check_supabase_key.py
           chmod +x ./gradlew
           # verifyMobileRelease (app/build.gradle.kts) refuses to run without signing, a version and
           # the release repository, so this cannot quietly produce an unsigned APK.
           ./gradlew ":app:assemble${{ matrix.flavor }}StandardRelease" --stacktrace
           SRC=$(ls app/build/outputs/apk/${{ matrix.id }}Standard/release/*.apk | head -n1)
+          # The configuration must have reached the APK itself. grep -q prints nothing.
+          unzip -p "$SRC" 'classes*.dex' > "$RUNNER_TEMP/release.dex"
+          grep -aqF "$SUPABASE_URL" "$RUNNER_TEMP/release.dex" \
+            || { echo "::error::The Supabase URL is missing from $SRC; Home Promotions would never load."; exit 1; }
           mkdir -p dist
           cp "$SRC" "dist/$APK_NAME"
 

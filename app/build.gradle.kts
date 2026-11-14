@@ -1,4 +1,5 @@
 import java.io.ByteArrayOutputStream
+import java.util.Base64
 import java.util.Properties
 import javax.inject.Inject
 import org.gradle.process.ExecOperations
@@ -20,11 +21,37 @@ val packagedLocaleQualifiers: Set<String> = run {
     }.toSet()
 }
 
+// Why a Supabase key must not be built into the APK, or null when it may be. Anyone can read the key
+// out of an APK, so only a publishable key or a legacy anon key (role "anon") is allowed; a secret
+// key (sb_secret_) or a legacy service_role key bypasses Row Level Security. Empty is allowed here:
+// that build simply shows no promotions, and the release workflow requires a key separately.
+// Mirrors tools/supabase/check_supabase_key.py (tests: tools/supabase/test_check_supabase_key.py).
+// The result never contains the key or any part of it.
+fun supabaseKeyProblem(key: String): String? {
+    if (key.isEmpty() || key.startsWith("sb_publishable_")) return null
+    if (key.startsWith("sb_secret_")) return "is a secret key (sb_secret_), which bypasses Row Level Security"
+    val parts = key.split('.')
+    if (parts.size != 3) return "is neither a publishable key (sb_publishable_) nor a legacy anon key"
+    val role = runCatching {
+        val claims = String(Base64.getUrlDecoder().decode(parts[1]), Charsets.UTF_8)
+        (groovy.json.JsonSlurper().parseText(claims) as? Map<*, *>)?.get("role") as? String
+    }.getOrNull()
+    return when (role) {
+        "anon" -> null
+        "service_role" -> "is a legacy service_role key, which bypasses Row Level Security"
+        null -> "looks like a legacy key, but its role cannot be read"
+        else -> "is a legacy key whose role is not anon"
+    }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     // Kotlin is provided by AGP 9's built-in Kotlin support; this plugin pins the Compose compiler
     // to the same version the TV app and core use.
     alias(libs.plugins.compose.compiler)
+    // Generates the serializers for @Serializable classes (Home Promotions' Supabase rows). Without
+    // it every decode fails at runtime with "Serializer for class ... not found".
+    alias(libs.plugins.kotlin.serialization)
     // Consumes :baselineprofile's recording and packages it as baseline.prof.
     alias(libs.plugins.baselineprofile)
 }
@@ -124,6 +151,14 @@ android {
             ?: localProperties.getProperty("SUPABASE_ANON_KEY")
             ?: localProperties.getProperty("supabaseAnonKey")
             ?: ""
+        // This key ships inside every APK, so it must be one Row Level Security limits.
+        supabaseKeyProblem(supabaseAnonKey)?.let { problem ->
+            throw GradleException(
+                "SUPABASE_ANON_KEY $problem. Only a publishable key (sb_publishable_) or a legacy anon " +
+                    "key may be built into the APK; fix the value in the environment, gradle properties " +
+                    "or local.properties. The key itself is not printed.",
+            )
+        }
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseAnonKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
 
         buildConfigField("String", "MOBILE_RELEASE_REPO", "\"$mobileReleaseRepo\"")
@@ -140,21 +175,26 @@ android {
             dimension = "brand"
             applicationId = "tv.goat.tv.mobile"
             manifestPlaceholders["appLabel"] = "GoatTV"
+            // Sports channel matches: this brand's own id, never another brand's (?brand=).
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"goat\"")
         }
         create("allaccess") {
             dimension = "brand"
             applicationId = "tv.allaccess.app.mobile"
             manifestPlaceholders["appLabel"] = "AllAccess"
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"allaccess\"")
         }
         create("fivestar") {
             dimension = "brand"
             applicationId = "tv.fivestar.ultra.mobile"
             manifestPlaceholders["appLabel"] = "5Star Ultra"
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"fivestar\"")
         }
         create("supreme") {
             dimension = "brand"
             applicationId = "tv.supreme.app.mobile"
             manifestPlaceholders["appLabel"] = "Supreme TV"
+            buildConfigField("String", "SPORTS_CHANNEL_BRAND", "\"supreme\"")
         }
 
         create("standard") {

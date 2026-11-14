@@ -1,0 +1,171 @@
+package tv.own.owntv.mobile.sports.live
+
+import androidx.compose.runtime.Immutable
+
+/**
+ * GoatTV Sports Live — client models for the public DigitalOcean Sports API
+ * (`/sports/home`, `/sports/events`, `/sports/leagues`). Sanitized metadata only: ids are GoatTV ids
+ * (`nba`, `nba.phi`, `evt_…`), never provider ids, and nothing here can build a stream.
+ *
+ * Ported unchanged from the GoatTV Android TV app (tag v4.6.1, `features/sports/live`), so both apps
+ * read the same backend contract the same way. The brand switch (`SportsChannelFeature`) arrives with
+ * the client in the next step; until a request carries `?brand=`, [SportsEvent.channels] is empty.
+ */
+
+@Immutable
+data class SportsLeague(
+    val id: String,
+    val name: String,
+    val shortName: String,
+    val order: Int,
+    val sport: String?,
+    /** "team" for team sports; other kinds (athlete cards) may have null home/away. */
+    val participantKind: String?,
+    /** Soccer competition metadata (null for US leagues): league / cup / continental / international. */
+    val competitionType: String? = null,
+    val region: String? = null,
+    val gender: String? = null,
+)
+
+@Immutable
+data class SportsTeam(
+    val id: String?,
+    val name: String,
+    val shortName: String?,
+    val abbreviation: String?,
+    val logoUrl: String?,
+    /** Score as sent by the API (a string); null while scheduled. Use [SportsEvent.showsScores]. */
+    val score: String?,
+)
+
+@Immutable
+data class SportsBroadcast(
+    val name: String,
+    /** TV / STREAMING / RADIO */
+    val type: String,
+    /** NATIONAL / HOME / AWAY / REGIONAL */
+    val market: String,
+    val networkKey: String?,
+)
+
+enum class SportsEventStatus {
+    SCHEDULED, LIVE, FINAL, DELAYED, POSTPONED, CANCELED,
+
+    /** A status this app version doesn't know yet — rendered neutrally, never as live. */
+    UNKNOWN;
+
+    companion object {
+        fun parse(raw: String?): SportsEventStatus =
+            entries.firstOrNull { it != UNKNOWN && it.name.equals(raw?.trim(), ignoreCase = true) } ?: UNKNOWN
+    }
+}
+
+/**
+ * One matched channel for an event (Phase B contract). Present when the backend exposure gate
+ * (`SPORTS_API_CHANNELS`) is on AND the app requests `?brand=`. [remoteId]
+ * is the provider stream id resolved against the LOCAL source; the server never sends a URL.
+ * [confidence] / [reason] are backend matching metadata: never shown to customers.
+ */
+@Immutable
+data class SportsChannelRef(
+    val channelId: String,
+    val remoteId: String,
+    val epgChannelId: String?,
+    val name: String,
+    val category: String?,
+    val logoUrl: String?,
+    val networkKey: String?,
+    val confidence: Int,
+    val reason: String,
+)
+
+@Immutable
+data class SportsEvent(
+    val id: String,
+    val leagueId: String,
+    val title: String?,
+    val away: SportsTeam?,
+    val home: SportsTeam?,
+    val startTimeMs: Long,
+    val status: SportsEventStatus,
+    val statusDetail: String?,
+    val venueName: String?,
+    val priority: Int,
+    val broadcasts: List<SportsBroadcast>,
+    val updatedAtMs: Long,
+    /** Backend-ranked channels; always empty while the channel feature is off. */
+    val channels: List<SportsChannelRef> = emptyList(),
+    /** Fight cards (MMA / boxing) only: the card's bouts. Null for every other event. */
+    val fight: SportsFight? = null,
+) {
+    val isLive: Boolean get() = status == SportsEventStatus.LIVE
+
+    /** Scores are only meaningful once play has started — never show a scheduled placeholder "0". */
+    val showsScores: Boolean
+        get() = (status == SportsEventStatus.LIVE || status == SportsEventStatus.FINAL || status == SportsEventStatus.DELAYED) &&
+            (home?.score != null || away?.score != null)
+
+    val isTeamEvent: Boolean get() = home != null && away != null
+
+    /** First TV broadcast (national first), else the first broadcast of any non-radio type. */
+    val primaryBroadcast: SportsBroadcast?
+        get() {
+            val visual = broadcasts.filter { !it.type.equals("RADIO", ignoreCase = true) }
+            return visual.firstOrNull { it.type.equals("TV", ignoreCase = true) && it.market.equals("NATIONAL", ignoreCase = true) }
+                ?: visual.firstOrNull { it.type.equals("TV", ignoreCase = true) }
+                ?: visual.firstOrNull()
+        }
+}
+
+/** A fighter as the API sends it (GoatTV id; provider ids never reach the app). */
+@Immutable
+data class SportsFighter(
+    val id: String?,
+    val name: String,
+    val shortName: String?,
+    /** Overall record as stated by the provider ("23-14-0"). */
+    val record: String?,
+    val country: String?,
+    /** Country flag image (optional presentation; initials fallback when null). */
+    val flagUrl: String?,
+)
+
+@Immutable
+data class SportsBout(
+    /** Provider order, 1-based: ascending start, main event last. */
+    val order: Int,
+    val weightClass: String?,
+    val scheduledRounds: Int?,
+    val startTimeMs: Long?,
+    val status: SportsEventStatus,
+    /** Current (live) or ending (final) round; null before the bout. */
+    val round: Int?,
+    val clock: String?,
+    val mainEvent: Boolean,
+    val fighters: List<SportsFighter>,
+    /** Index into [fighters] of the winner, when the provider states one. */
+    val winner: Int?,
+    /** "KO/TKO", "Submission" or "Decision" when the provider states it; null otherwise. */
+    val method: String?,
+)
+
+@Immutable
+data class SportsFight(val bouts: List<SportsBout>) {
+    /** The main event: flagged by the backend (provider order puts it last). */
+    val mainEvent: SportsBout? get() = bouts.firstOrNull { it.mainEvent } ?: bouts.lastOrNull()
+}
+
+/** GET /sports/home */
+data class SportsHomePayload(
+    val generatedAtMs: Long,
+    val cursor: String,
+    val leagues: List<SportsLeague>,
+    val popular: List<String>,
+    val events: List<SportsEvent>,
+)
+
+/** GET /sports/events[?since=] */
+data class SportsEventsPayload(
+    val cursor: String,
+    val events: List<SportsEvent>,
+)

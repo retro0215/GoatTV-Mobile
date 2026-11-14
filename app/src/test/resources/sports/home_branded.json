@@ -1,0 +1,100 @@
+{
+  "generatedAt": "2026-11-13T18:00:05.120Z",
+  "cursor": "2026-11-13T18:00:00.000Z",
+  "leagues": [
+    {"id": "nfl", "name": "NFL", "shortName": "NFL", "order": 1, "sport": "football", "participantKind": "team", "competitionType": null, "region": null, "gender": null},
+    {"id": "nhl", "name": "NHL", "shortName": "NHL", "order": 7, "sport": "hockey", "participantKind": "team", "competitionType": null, "region": null, "gender": null},
+    {"id": "nba", "name": "NBA", "shortName": "NBA", "order": 3, "sport": "basketball", "participantKind": "team", "competitionType": null, "region": null, "gender": null},
+    {"id": "ufc", "name": "UFC", "shortName": "UFC", "order": 30, "sport": "mma", "participantKind": "athlete", "competitionType": null, "region": null, "gender": null},
+    {"id": "epl", "name": "Premier League", "shortName": "EPL", "order": 40, "sport": "soccer", "participantKind": "team", "competitionType": "league", "region": "england", "gender": "men"}
+  ],
+  "popular": ["evt_fixture_nhl_live", "evt_fixture_nfl_sched"],
+  "events": [
+    {
+      "id": "evt_fixture_nfl_sched",
+      "leagueId": "nfl",
+      "title": null,
+      "away": {"id": "nfl.away", "name": "Away Team Name", "shortName": "Away", "abbreviation": "AWY", "logoUrl": "https://images.example/teams/nfl.away.png", "score": null},
+      "home": {"id": "nfl.home", "name": "Home Team Name", "shortName": "Home", "abbreviation": "HOM", "logoUrl": "https://images.example/teams/nfl.home.png", "score": null},
+      "startTime": "2026-11-16T18:00:00Z",
+      "status": "SCHEDULED",
+      "statusDetail": "Sun, November 16th at 1:00 PM EST",
+      "venueName": "Fixture Stadium",
+      "priority": 80,
+      "broadcasts": [
+        {"name": "ESPN", "type": "TV", "market": "NATIONAL", "networkKey": "espn"},
+        {"name": "ESPN+", "type": "STREAMING", "market": "NATIONAL", "networkKey": "espn-plus"}
+      ],
+      "updatedAt": "2026-11-13T17:59:41.002Z",
+      "channels": [
+        {"channelId": "sch_fixture_1", "remoteId": "900001", "epgChannelId": "fixture.espn.us", "name": "US: ESPN FHD", "category": "USA | Sports", "logoUrl": null, "networkKey": "espn", "confidence": 95, "reason": "network_exact"},
+        {"channelId": "sch_fixture_2", "remoteId": "900002", "epgChannelId": null, "name": "US: ESPN 4K", "category": "USA | 4K", "logoUrl": null, "networkKey": "espn", "confidence": 90, "reason": "network_alias"}
+      ],
+      "fight": null
+    },
+    {
+      "id": "evt_fixture_nhl_live",
+      "leagueId": "nhl",
+      "title": null,
+      "away": {"id": "nhl.away", "name": "Away Hockey Club", "shortName": "Away HC", "abbreviation": "AHC", "logoUrl": null, "score": "2"},
+      "home": {"id": "nhl.home", "name": "Home Hockey Club", "shortName": "Home HC", "abbreviation": "HHC", "logoUrl": null, "score": "3"},
+      "startTime": "2026-11-13T17:00:00.000Z",
+      "status": "LIVE",
+      "statusDetail": "12:41 - 2nd",
+      "venueName": null,
+      "priority": 60,
+      "broadcasts": [{"name": "Regional Sports Net", "type": "TV", "market": "HOME", "networkKey": "rsn-home"}],
+      "updatedAt": "2026-11-13T17:59:58.000Z",
+      "channels": [
+        {"channelId": "sch_fixture_3", "remoteId": "900003", "epgChannelId": "fixture.rsn.us", "name": "US: Regional Sports Net", "category": "USA | Regional", "logoUrl": null, "networkKey": "rsn-home", "confidence": 80, "reason": "rsn"}
+      ],
+      "fight": null
+    },
+    {
+      "id": "evt_fixture_ufc_card",
+      "leagueId": "ufc",
+      "title": "UFC Fixture Night",
+      "away": null,
+      "home": null,
+      "startTime": "2026-11-15T01:00:00Z",
+      "status": "SCHEDULED",
+      "statusDetail": null,
+      "venueName": "Fixture Arena",
+      "priority": 70,
+      "broadcasts": [],
+      "updatedAt": "2026-11-13T12:00:00Z",
+      "channels": [
+        {"channelId": "sch_fixture_4", "remoteId": "900004", "epgChannelId": null, "name": "PPV: Fixture Night", "category": "PPV Events", "logoUrl": null, "networkKey": null, "confidence": 95, "reason": "event_channel"}
+      ],
+      "fight": {
+        "bouts": [
+          {"order": 1, "weightClass": "Lightweight", "scheduledRounds": 3, "startTime": "2026-11-15T01:00:00Z", "status": "SCHEDULED", "round": null, "clock": null, "mainEvent": false,
+           "fighters": [{"id": "ftr_fixture_1", "name": "Fighter One", "shortName": null, "record": "10-2-0", "country": "USA", "flagUrl": null},
+                        {"id": "ftr_fixture_2", "name": "Fighter Two", "shortName": null, "record": "9-3-0", "country": "BRA", "flagUrl": null}],
+           "winner": null, "method": null},
+          {"order": 2, "weightClass": "Welterweight", "scheduledRounds": 5, "startTime": "2026-11-15T03:00:00Z", "status": "SCHEDULED", "round": null, "clock": null, "mainEvent": true,
+           "fighters": [{"id": "ftr_fixture_3", "name": "Fighter Three", "shortName": null, "record": "20-1-0", "country": "MEX", "flagUrl": null},
+                        {"id": "ftr_fixture_4", "name": "Fighter Four", "shortName": null, "record": "18-4-0", "country": "USA", "flagUrl": null}],
+           "winner": null, "method": null}
+        ]
+      }
+    },
+    {
+      "id": "evt_fixture_nba_final",
+      "leagueId": "nba",
+      "title": null,
+      "away": {"id": "nba.away", "name": "Away Basketball", "shortName": "Away", "abbreviation": "AWB", "logoUrl": null, "score": "101"},
+      "home": {"id": "nba.home", "name": "Home Basketball", "shortName": "Home", "abbreviation": "HMB", "logoUrl": null, "score": "99"},
+      "startTime": "2026-11-13T00:30:00Z",
+      "status": "FINAL",
+      "statusDetail": "Final/OT",
+      "venueName": "Fixture Center",
+      "priority": 40,
+      "broadcasts": [{"name": "League Pass", "type": "STREAMING", "market": "NATIONAL", "networkKey": null}],
+      "updatedAt": "2026-11-13T03:10:00Z",
+      "channels": [],
+      "fight": null,
+      "aFieldFromAFutureBackend": {"ignored": true}
+    }
+  ]
+}

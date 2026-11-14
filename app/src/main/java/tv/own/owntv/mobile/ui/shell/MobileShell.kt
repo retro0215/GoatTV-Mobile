@@ -226,7 +226,15 @@ fun MobileShell(
     // A mini player is something the user asks for in the full screen player, never something the
     // app decides for them — see [LocalMiniRequested].
     val miniRequested = remember { mutableStateOf(false) }
-    val nothingPlaying = channel == null && film == null
+    // A channel can stay selected after its stream stopped (Live TV left for another tab, Multiview
+    // opened), so the selection alone does not mean something is playing — that brought back a mini
+    // player over a stopped stream.
+    val liveActive by tuner.playbackActive.collectAsStateWithLifecycle()
+    val nothingPlaying = tv.own.owntv.mobile.ui.screens.live.LivePreviewLifecycle.nothingPlaying(
+        channelSelected = channel != null,
+        liveActive = liveActive,
+        filmPlaying = film != null,
+    )
     // The request dies with the stream, so the next one starts without a window the user never asked
     // for; without this, stopping and then previewing another channel would bring the old one back.
     LaunchedEffect(nothingPlaying) { if (nothingPlaying) miniRequested.value = false }

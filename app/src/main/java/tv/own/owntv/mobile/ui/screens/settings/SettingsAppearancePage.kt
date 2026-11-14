@@ -265,7 +265,7 @@ private fun ThemeMode.labelRes(): Int = when (this) {
 @Composable
 internal fun AppFontFamily.labelRes(): Int = when (this) {
     AppFontFamily.LORA -> R.string.settings_font_lora
-    AppFontFamily.SYSTEM_SANS -> R.string.settings_font_system_sans
+    AppFontFamily.SYSTEM_SANS, AppFontFamily.PLUS_JAKARTA_SANS -> R.string.settings_font_system_sans
     AppFontFamily.MONOSPACE -> R.string.settings_font_monospace
     AppFontFamily.PLAYFAIR_DISPLAY -> R.string.settings_font_playfair_display
     AppFontFamily.DANCING_SCRIPT -> R.string.settings_font_dancing_script

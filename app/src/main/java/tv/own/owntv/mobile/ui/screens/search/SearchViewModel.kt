@@ -69,7 +69,9 @@ class SearchViewModel(
     ) { q, c, limit -> Triple(q, c, limit) }
         .flatMapLatest { (q, c, limit) ->
             if (q.length < MIN_QUERY) flowOf(SearchResults())
-            else flow { emit(searchReader.search(c.profileId, c, q, limit)) }
+            // Core 1.0.67 also returns guide programmes; this screen does not list them, so they must
+            // not make an otherwise empty result look non-empty.
+            else flow { emit(searchReader.search(c.profileId, c, q, limit).copy(programmes = emptyList())) }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchResults())
 

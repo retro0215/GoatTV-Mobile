@@ -5,6 +5,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import tv.own.owntv.core.brand.AppIcon
+import tv.own.owntv.mobile.ui.components.BrandIconChoices
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.ui.components.allaccessLabelRes
 import tv.own.owntv.mobile.ui.components.allaccessRes
@@ -19,7 +20,7 @@ class SupremeAppIconTest {
 
     @Test
     fun supremeIconDefinitions_eightIconsExist() {
-        val labels = AppIcon.entries.map { it.supremeLabelRes() }
+        val labels = BrandIconChoices.map { it.supremeLabelRes() }
         assertEquals(8, labels.size)
         assertEquals(8, labels.distinct().size)
         assertEquals(R.string.supreme_icon_1, AppIcon.PETROL.supremeLabelRes())
@@ -34,7 +35,7 @@ class SupremeAppIconTest {
 
     @Test
     fun supremeIconResolution_mapsToDrawableResources() {
-        val drawables = AppIcon.entries.map { it.supremeRes() }
+        val drawables = BrandIconChoices.map { it.supremeRes() }
         assertEquals(8, drawables.size)
         assertEquals(8, drawables.distinct().size)
         assertEquals(R.drawable.supreme_icon_1, AppIcon.PETROL.supremeRes())

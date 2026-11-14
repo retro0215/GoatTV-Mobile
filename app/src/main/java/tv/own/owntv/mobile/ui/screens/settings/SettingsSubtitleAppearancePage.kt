@@ -21,6 +21,8 @@ import tv.own.owntv.mobile.ui.components.MobileTextField
 import tv.own.owntv.mobile.ui.components.SettingRow
 import tv.own.owntv.mobile.ui.screens.settings.customize.selectedTick
 import tv.own.owntv.mobile.ui.theme.MobileDimens
+import tv.own.owntv.mobile.ui.theme.MobileFontChoices
+import tv.own.owntv.mobile.ui.theme.onMobile
 
 /** Which appearance picker is open. One at a time, so one nullable holds them all. */
 private enum class SubtitleSheet { SIZE, FONT, COLOR, POSITION, BACKGROUND }
@@ -141,10 +143,10 @@ fun SettingsSubtitleAppearancePage(
             title = stringResource(R.string.settings_subtitle_font),
             choices = listOf(
                 SettingsChoice<AppFontFamily?>(null, stringResource(R.string.settings_subtitle_default)),
-            ) + AppFontFamily.entries.map {
+            ) + MobileFontChoices.map {
                 SettingsChoice<AppFontFamily?>(it, stringResource(it.labelRes()))
             },
-            selected = font,
+            selected = font?.onMobile,
             onSelect = { picked -> vm.edit { setSubtitleFont(picked) } },
             onDismiss = dismiss,
         )

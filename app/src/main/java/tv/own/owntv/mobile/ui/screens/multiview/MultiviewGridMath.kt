@@ -2,6 +2,7 @@ package tv.own.owntv.mobile.ui.screens.multiview
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
@@ -252,5 +253,25 @@ object MultiviewGridMath {
             if (d < bestD) { bestD = d; best = i }
         }
         return best
+    }
+
+    /**
+     * The picture's size inside a [width] × [height] tile: the largest box of the video's own [aspect]
+     * (display width / height, pixel aspect included) that fits, centred by the caller, so the rest
+     * of the tile is black bars — above and below a wide picture in a tall tile, either side of a tall
+     * one in a wide tile. A tile's TextureView used to fill the tile and the decoder's frame was
+     * scaled to it, so a 16:9 channel alone in a portrait tile was squeezed tall.
+     *
+     * The whole tile until the aspect is known (null, zero, NaN) or the tile has no size, which is
+     * also what it was before the first frame.
+     */
+    fun fitVideo(width: Float, height: Float, aspect: Float?): Size {
+        if (aspect == null || !aspect.isFinite() || aspect <= 0f) return Size(width, height)
+        if (!width.isFinite() || !height.isFinite() || width <= 0f || height <= 0f) return Size(width, height)
+        return if (aspect >= width / height) {
+            Size(width, width / aspect)
+        } else {
+            Size(height * aspect, height)
+        }
     }
 }

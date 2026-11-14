@@ -16,6 +16,7 @@ import tv.own.owntv.core.model.HomeRow
 import tv.own.owntv.core.model.HomeTrendingStyle
 import tv.own.owntv.core.trending.TrendingAvailability
 import tv.own.owntv.mobile.R
+import tv.own.owntv.mobile.ui.screens.home.shownOnMobile
 import tv.own.owntv.mobile.ui.components.MobileListRow
 import tv.own.owntv.mobile.ui.components.MobileSwitch
 import tv.own.owntv.mobile.ui.components.SettingRow
@@ -86,8 +87,8 @@ fun SettingsHomePage(
         settingsSection(R.string.settings_sections)
         settingsNote(R.string.settings_hidden_sections)
         settingsGroup(key = "rows") {
-            home.settingsRows.forEachIndexed { index, row ->
-                val order = home.settingsRows
+            val order = home.settingsRows.filter { it.shownOnMobile }
+            order.forEachIndexed { index, row ->
                 ReorderableSwitchRow(
                     title = stringResource(row.titleRes()),
                     subtitle = if (row in home.hidden) stringResource(R.string.settings_hidden)
@@ -100,7 +101,10 @@ fun SettingsHomePage(
                     canMoveDown = index < order.lastIndex,
                     onMove = { delta ->
                         val moved = order.toMutableList().apply { add(index + delta, removeAt(index)) }
-                        editHome { it.copy(order = listOf(HomeRow.TRENDING) + moved) }
+                        // Rows Mobile does not draw keep their stored place at the end.
+                        editHome { cfg ->
+                            cfg.copy(order = listOf(HomeRow.TRENDING) + moved + cfg.settingsRows.filterNot { it.shownOnMobile })
+                        }
                     },
                 )
                 // Only the two channel rows have a second shape to draw in, so only they carry the
@@ -183,6 +187,8 @@ private fun HomeRow.titleRes() = when (this) {
     HomeRow.HERO -> R.string.settings_keep_watching
     HomeRow.RECENT_CHANNELS -> R.string.home_row_recent_channels
     HomeRow.FAVORITE_CHANNELS -> R.string.home_row_favorite_channels
+    HomeRow.FAVORITE_MOVIES -> R.string.home_row_favorite_movies
+    HomeRow.FAVORITE_SERIES -> R.string.home_row_favorite_series
     HomeRow.CONTINUE_MOVIES -> R.string.home_row_continue_movies
     HomeRow.CONTINUE_SERIES -> R.string.home_row_continue_series
 }
@@ -192,6 +198,8 @@ private fun HomeRow.descriptionRes() = when (this) {
     HomeRow.HERO -> R.string.home_row_hero_description
     HomeRow.RECENT_CHANNELS -> R.string.home_row_recent_description
     HomeRow.FAVORITE_CHANNELS -> R.string.home_row_favorite_description
+    HomeRow.FAVORITE_MOVIES -> R.string.home_row_favorite_movies_description
+    HomeRow.FAVORITE_SERIES -> R.string.home_row_favorite_series_description
     HomeRow.CONTINUE_MOVIES -> R.string.home_row_continue_movies_description
     HomeRow.CONTINUE_SERIES -> R.string.home_row_continue_series_description
 }

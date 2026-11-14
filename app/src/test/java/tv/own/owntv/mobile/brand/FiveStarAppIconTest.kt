@@ -5,6 +5,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import tv.own.owntv.core.brand.AppIcon
+import tv.own.owntv.mobile.ui.components.BrandIconChoices
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.ui.components.allaccessLabelRes
 import tv.own.owntv.mobile.ui.components.allaccessRes
@@ -17,7 +18,7 @@ class FiveStarAppIconTest {
 
     @Test
     fun fivestarIconDefinitions_eightIconsExist() {
-        val labels = AppIcon.entries.map { it.fivestarLabelRes() }
+        val labels = BrandIconChoices.map { it.fivestarLabelRes() }
         assertEquals(8, labels.size)
         assertEquals(8, labels.distinct().size)
         assertEquals(R.string.fivestar_icon_1, AppIcon.PETROL.fivestarLabelRes())
@@ -32,7 +33,7 @@ class FiveStarAppIconTest {
 
     @Test
     fun fivestarIconResolution_mapsToDrawableResources() {
-        val drawables = AppIcon.entries.map { it.fivestarRes() }
+        val drawables = BrandIconChoices.map { it.fivestarRes() }
         assertEquals(8, drawables.size)
         assertEquals(8, drawables.distinct().size)
         assertEquals(R.drawable.fivestar_icon_1, AppIcon.PETROL.fivestarRes())

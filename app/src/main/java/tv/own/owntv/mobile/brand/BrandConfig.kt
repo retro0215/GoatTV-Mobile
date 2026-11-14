@@ -51,3 +51,24 @@ object BrandConfig {
     private fun resolveCurrentBrand(): MobileBrand =
         MobileBrand.entries.first { it.brandId == BuildConfig.FLAVOR_brand }
 }
+
+/**
+ * Core's strings name the upstream app — "Color of the OwnTV icon and logo", "What OwnTV opens when
+ * it starts" — in every one of its translations, and a reseller build showed them as written.
+ *
+ * Every translation keeps the brand as the literal word, so it is swapped for this brand's name at
+ * display time rather than copied into new strings: the thirty translations stay exactly as core
+ * ships them, and each of the four brands reads its own name.
+ */
+object BrandedText {
+    /** The upstream brand as core's strings spell it. */
+    const val UPSTREAM_BRAND = "OwnTV"
+
+    fun rebrand(text: String, brandName: String = BrandConfig.brandName): String =
+        if (brandName == UPSTREAM_BRAND) text else text.replace(UPSTREAM_BRAND, brandName)
+}
+
+/** A core string with the upstream brand name replaced by this brand's — see [BrandedText]. */
+@androidx.compose.runtime.Composable
+fun brandedStringResource(@androidx.annotation.StringRes id: Int): String =
+    BrandedText.rebrand(androidx.compose.ui.res.stringResource(id))

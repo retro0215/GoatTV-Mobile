@@ -49,11 +49,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import tv.own.owntv.core.database.entity.ChannelEntity
@@ -146,6 +150,35 @@ fun LiveScreen(
         }
     }
 
+    // Back on screen with a channel still selected but its stream stopped — another tab or Multiview
+    // stopped it on the way out (above, and MultiviewSession.start). The auto-tune above only acts on
+    // *no* channel, so nothing re-opened this one and the preview stayed black. Each time the screen
+    // reaches STARTED: wait for a running grid to hand its decoders back, then start the same channel
+    // again. resumeSelected() does nothing while a stream plays or connects, so no second connection.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            multiview.running.first { running -> !running }
+            if (LivePreviewLifecycle.shouldResume(
+                    started = true,
+                    multiviewRunning = multiview.running.value,
+                    selected = tuner.channel.value != null,
+                    playbackActive = tuner.playbackActive.value,
+                )
+            ) {
+                tuner.resumeSelected()
+            }
+        }
+    }
+
+    // Full screen shows the stream the preview has, so a stopped one is started first: the highlighted
+    // tile used to open a black, stuck player whose Play did nothing.
+    val openFullscreen = {
+        toFullscreen = true
+        tuner.resumeSelected()
+        onOpenPlayer()
+    }
+
     // EPG Now/Next loading for visible items in the grid
     LaunchedEffect(gridState, channels) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.map { it.index } }
@@ -178,10 +211,7 @@ fun LiveScreen(
                     .aspectRatio(16f / 9f)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black)
-                    .clickable {
-                        toFullscreen = true
-                        onOpenPlayer()
-                    },
+                    .clickable { openFullscreen() },
             ) {
                 if (tunedChannel != null) {
                     VideoStage(player = tuner.player, modifier = Modifier.fillMaxSize())
@@ -209,10 +239,7 @@ fun LiveScreen(
 
                 // Fullscreen Icon Button
                 IconButton(
-                    onClick = {
-                        toFullscreen = true
-                        onOpenPlayer()
-                    },
+                    onClick = { openFullscreen() },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(6.dp)
@@ -221,7 +248,8 @@ fun LiveScreen(
                 ) {
                     Icon(
                         imageVector = MobileIcons.OpenInFull,
-                        contentDescription = stringResource(R.string.live_categories_button),
+                        // It said "Categories" — the label of the button beside it.
+                        contentDescription = stringResource(R.string.multiview_tile_fullscreen),
                         tint = Color.White,
                         modifier = Modifier.size(18.dp),
                     )
@@ -404,8 +432,7 @@ fun LiveScreen(
                                 isFavorite = channel.id in favoriteIds,
                                 onClick = {
                                     if (isSelected) {
-                                        toFullscreen = true
-                                        onOpenPlayer()
+                                        openFullscreen()
                                     } else {
                                         tuner.tune(channel.id)
                                     }

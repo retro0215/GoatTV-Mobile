@@ -44,6 +44,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -113,6 +114,9 @@ internal class SheetEntry(
     var modifier by mutableStateOf(modifier)
     var title by mutableStateOf(title)
     var content by mutableStateOf(content)
+
+    /** [MobileBottomSheet]'s expandRequest: each new value above 0 opens the sheet all the way. */
+    var expandRequest by mutableIntStateOf(0)
 }
 
 /**
@@ -244,6 +248,20 @@ private fun BoxScope.SheetLayer(entry: SheetEntry) {
     val imeVisible = WindowInsets.isImeVisible
     LaunchedEffect(imeVisible, opened) {
         if (!imeVisible || !opened) return@LaunchedEffect
+        snapshotFlow { state.anchors.size }.first { it > 0 }
+        runCatching {
+            if (animations == AnimationLevel.OFF) {
+                state.snapTo(SheetAnchor.EXPANDED)
+            } else {
+                state.animateTo(SheetAnchor.EXPANDED)
+            }
+        }
+    }
+
+    // The content asked to be seen whole (see MobileBottomSheet's expandRequest), after the opening.
+    val expandRequest = entry.expandRequest
+    LaunchedEffect(expandRequest, opened) {
+        if (expandRequest <= 0 || !opened) return@LaunchedEffect
         snapshotFlow { state.anchors.size }.first { it > 0 }
         runCatching {
             if (animations == AnimationLevel.OFF) {

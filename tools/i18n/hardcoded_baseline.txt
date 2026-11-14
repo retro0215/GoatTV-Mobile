@@ -16,7 +16,6 @@
 1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.fivestar.ultra.mobile
 1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.goat.tv.mobile
 1	app/src/main/java/tv/own/owntv/mobile/brand/BrandConfig.kt	tv.supreme.app.mobile
-1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	Failed to fetch promotions: ${e.message}
 1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	MobileHomePromoRepo
 1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	NewApi
 1	app/src/main/java/tv/own/owntv/mobile/promotions/HomePromotionRepository.kt	active

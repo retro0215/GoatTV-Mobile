@@ -15,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,6 +75,7 @@ import tv.own.owntv.mobile.ui.components.MobileBottomSheet
 import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.MobileIcons
 import tv.own.owntv.mobile.ui.components.MobileListRow
+import tv.own.owntv.mobile.ui.components.SheetScroll
 import tv.own.owntv.player.LivePreviewEngine
 import tv.own.owntv.player.PlaybackFailure
 import tv.own.owntv.player.describe
@@ -375,39 +375,26 @@ private fun TileGrid(
                             if (fullSlot == null) {
                                 Modifier.pointerInput(slot, index, count, pxRects.getOrNull(index)) {
                                     // A long press that then drags is a move; released in place, the
-                                    // menu. Armed only past twice the touch slop — a finger resting on
-                                    // glass still moves a little.
-                                    val slop = viewConfiguration.touchSlop * 2f
-                                    var moved = false
-                                    var travelled = 0f
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = { at ->
-                                            moved = false
-                                            travelled = 0f
+                                    // menu (see detectTileHold for why this is not the stock detector).
+                                    detectTileHold(
+                                        onHold = { at ->
                                             dragSlot = slot
                                             val pr = pxRects.getOrNull(index)
                                             dragPos = Offset((pr?.left ?: 0f) + at.x, (pr?.top ?: 0f) + at.y)
                                         },
-                                        onDrag = { change, amount ->
-                                            change.consume()
-                                            travelled += amount.getDistance()
-                                            if (!moved && travelled > slop) {
-                                                moved = true
-                                                onDragStart(slot)
-                                            }
-                                            dragPos += amount
-                                        },
-                                        onDragEnd = {
-                                            if (!moved) {
-                                                onMenu(slot)
-                                            } else {
-                                                val to = MultiviewGridMath.indexAt(dragPos, pxRects)
-                                                val from = model.displayIndexOf(slot)
-                                                if (to != from) onDrop(from, to)
-                                            }
+                                        onMoveStart = { onDragStart(slot) },
+                                        onMove = { amount -> dragPos += amount },
+                                        onMenu = {
                                             dragSlot = null
+                                            onMenu(slot)
                                         },
-                                        onDragCancel = { dragSlot = null },
+                                        onDrop = {
+                                            val to = MultiviewGridMath.indexAt(dragPos, pxRects)
+                                            val from = model.displayIndexOf(slot)
+                                            dragSlot = null
+                                            if (to != from) onDrop(from, to)
+                                        },
+                                        onCancel = { dragSlot = null },
                                     )
                                 }
                             } else {
@@ -565,15 +552,22 @@ private fun BoxScope.EngineTile(session: MultiviewSession, slot: Int, channelId:
  * phone has very few, and one that gets none shows nothing while its sound plays on. A TextureView
  * is drawn by the GPU like any other view, so five can play at once. Full screen keeps its
  * SurfaceView. Keyed on the engine's surface generation, which a released 4K decoder bumps.
+ *
+ * The view is sized to the video's own shape and centred, with black bars filling the rest of the
+ * tile ([MultiviewGridMath.fitVideo]); a TextureView scales whatever frame it gets to its bounds, so
+ * filling the tile stretched the picture. Only the view's size follows the video — the TextureView,
+ * its Surface and the decoder behind it are not rebuilt when the aspect arrives or the tile resizes.
  */
 @UnstableApi
 @Composable
 private fun TileSurface(engine: LivePreviewEngine, modifier: Modifier = Modifier) {
     val surfaceGeneration by engine.surfaceGeneration.collectAsStateWithLifecycle()
-    Box(modifier.background(Color.Black)) {
+    val aspect by engine.videoAspect.collectAsStateWithLifecycle()
+    BoxWithConstraints(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+        val picture = MultiviewGridMath.fitVideo(maxWidth.value, maxHeight.value, aspect)
         key(surfaceGeneration) {
             AndroidView(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.size(picture.width.dp, picture.height.dp),
                 factory = { ctx ->
                     TextureView(ctx).apply {
                         // The Surface is ours to make and release: leaking one keeps a decoder alive.
@@ -733,35 +727,40 @@ private fun TileMenu(
 ) {
     val several = model.size > 1
     MobileBottomSheet(onDismissRequest = onDismiss, title = tile.content.title) {
-        if (!model.isFull) MenuRow(stringResource(R.string.multiview_add_channel), MobileIcons.Add, onAdd)
-        MenuRow(stringResource(R.string.multiview_tile_change_channel), MobileIcons.SwapHoriz, onSwap)
-        if (model.audioSlot != tile.slot) MenuRow(stringResource(R.string.multiview_make_audio), MobileIcons.VolumeUp, onAudio)
-        if (several) MenuRow(stringResource(R.string.multiview_fullscreen_in_grid), MobileIcons.OpenInFull, onGridFullscreen)
-        MenuRow(stringResource(R.string.multiview_tile_fullscreen), MobileIcons.OpenInNew, onOpenInPlayer)
-        if (several) {
-            MenuRow(
-                stringResource(
-                    if (model.spotlightSlot == tile.slot) R.string.multiview_spotlight_remove else R.string.multiview_spotlight,
-                ),
-                MobileIcons.AspectRatio,
-                onSpotlight,
-            )
+        // Scrolls inside the sheet. Seen on the Samsung with 1.0.11: a phone on its side is barely 400 dp
+        // tall, and with three or more tiles the layout rows, Move tile and Remove tile ran off the bottom
+        // of the screen, out of reach — removing a tile meant turning the phone upright first.
+        SheetScroll {
+            if (!model.isFull) MenuRow(stringResource(R.string.multiview_add_channel), MobileIcons.Add, onAdd)
+            MenuRow(stringResource(R.string.multiview_tile_change_channel), MobileIcons.SwapHoriz, onSwap)
+            if (model.audioSlot != tile.slot) MenuRow(stringResource(R.string.multiview_make_audio), MobileIcons.VolumeUp, onAudio)
+            if (several) MenuRow(stringResource(R.string.multiview_fullscreen_in_grid), MobileIcons.OpenInFull, onGridFullscreen)
+            MenuRow(stringResource(R.string.multiview_tile_fullscreen), MobileIcons.OpenInNew, onOpenInPlayer)
+            if (several) {
+                MenuRow(
+                    stringResource(
+                        if (model.spotlightSlot == tile.slot) R.string.multiview_spotlight_remove else R.string.multiview_spotlight,
+                    ),
+                    MobileIcons.AspectRatio,
+                    onSpotlight,
+                )
+            }
+            MultiviewLayoutMode.available(model.size).forEach { mode ->
+                MenuRow(
+                    label = stringResource(
+                        when (mode) {
+                            MultiviewLayoutMode.Auto -> R.string.multiview_layout_default
+                            MultiviewLayoutMode.EvenGrid -> R.string.multiview_layout_even
+                            MultiviewLayoutMode.Stacked -> R.string.multiview_layout_stacked
+                        },
+                    ),
+                    icon = if (mode == layoutMode && model.spotlightSlot == null) MobileIcons.Check else MobileIcons.GridView,
+                    onClick = { onLayout(mode) },
+                )
+            }
+            if (several) MenuRow(stringResource(R.string.multiview_move_tile), MobileIcons.SwapVert, onMove)
+            MenuRow(stringResource(R.string.multiview_tile_remove), MobileIcons.Close, onRemove)
         }
-        MultiviewLayoutMode.available(model.size).forEach { mode ->
-            MenuRow(
-                label = stringResource(
-                    when (mode) {
-                        MultiviewLayoutMode.Auto -> R.string.multiview_layout_default
-                        MultiviewLayoutMode.EvenGrid -> R.string.multiview_layout_even
-                        MultiviewLayoutMode.Stacked -> R.string.multiview_layout_stacked
-                    },
-                ),
-                icon = if (mode == layoutMode && model.spotlightSlot == null) MobileIcons.Check else MobileIcons.GridView,
-                onClick = { onLayout(mode) },
-            )
-        }
-        if (several) MenuRow(stringResource(R.string.multiview_move_tile), MobileIcons.SwapVert, onMove)
-        MenuRow(stringResource(R.string.multiview_tile_remove), MobileIcons.Close, onRemove)
     }
 }
 

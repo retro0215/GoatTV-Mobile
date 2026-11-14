@@ -42,6 +42,7 @@ import tv.own.owntv.core.companion.CompanionLink
 import tv.own.owntv.core.i18n.LocaleStore
 import tv.own.owntv.core.i18n.SupportedLocales
 import tv.own.owntv.core.settings.StartupMode
+import tv.own.owntv.mobile.brand.brandedStringResource
 import tv.own.owntv.mobile.BuildConfig
 import tv.own.owntv.mobile.R
 import tv.own.owntv.mobile.brand.BrandConfig
@@ -112,14 +113,14 @@ fun SettingsAppPage(
 
             SettingRow(
                 title = stringResource(R.string.settings_app_icon),
-                subtitle = stringResource(R.string.settings_app_icon_summary),
+                subtitle = brandedStringResource(R.string.settings_app_icon_summary),
                 value = stringResource(appIcon.label),
                 onClick = { showAppIcon = true },
             )
 
             SettingRow(
                 title = stringResource(R.string.settings_app_startup),
-                subtitle = stringResource(R.string.settings_app_startup_description),
+                subtitle = brandedStringResource(R.string.settings_app_startup_description),
                 value = if (mode == StartupMode.SPECIFIC_CHANNEL && channel != null) {
                     channel.name
                 } else {
