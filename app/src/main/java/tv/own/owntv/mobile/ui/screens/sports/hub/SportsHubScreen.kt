@@ -878,13 +878,13 @@ private fun GameDetailsSheet(
     }
     // A Preview that starts is brought into view: the details scroll to their top, where it plays, and
     // in landscape the sheet opens all the way. Remembered across rotation, so turning the phone does
-    // not count as a new Preview.
+    // not count as a new Preview (no scroll) — but turning it on its side mid-Preview opens the sheet.
     val detailsScroll = rememberScrollState()
     var revealedPreview by rememberSaveable(event.id) { mutableStateOf<Long?>(null) }
     var expandRequest by remember(event.id) { mutableIntStateOf(0) }
     val windowSize = LocalWindowInfo.current.containerSize
     val landscape = windowSize.width > windowSize.height
-    LaunchedEffect(previewing) {
+    LaunchedEffect(previewing, landscape) {
         val reveal = SportsPreviewReveal.onChange(revealedPreview, previewing, landscape)
         revealedPreview = previewing
         if (reveal == null) return@LaunchedEffect

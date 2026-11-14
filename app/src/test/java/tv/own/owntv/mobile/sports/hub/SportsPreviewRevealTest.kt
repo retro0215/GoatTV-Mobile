@@ -29,8 +29,22 @@ class SportsPreviewRevealTest {
 
     @Test
     fun theSamePreviewCarryingOn_neverScrolls() {
-        // Score, clock and playback updates recompose the panel with the same channel previewing.
-        repeat(3) { assertNull(SportsPreviewReveal.onChange(7, 7, landscape = true)) }
+        // Turning the phone upright mid-Preview: same channel, nothing moves.
+        assertNull(SportsPreviewReveal.onChange(7, 7, landscape = false))
+        // On its side the sheet is asked to stay all the way open, but the details are never scrolled.
+        repeat(3) { assertEquals(false, SportsPreviewReveal.onChange(7, 7, landscape = true)?.scrollToTop) }
+    }
+
+    /** Seen on the Samsung with 1.0.11: a Preview started upright stayed in a half-open sheet after turning. */
+    @Test
+    fun turningOnItsSideMidPreview_opensTheSheet_withoutScrolling() {
+        assertEquals(Reveal(scrollToTop = false, expandSheet = true), SportsPreviewReveal.onChange(7, 7, landscape = true))
+    }
+
+    @Test
+    fun turningWithNoPreview_movesNothing() {
+        assertNull(SportsPreviewReveal.onChange(null, null, landscape = true))
+        assertNull(SportsPreviewReveal.onChange(7, null, landscape = true))
     }
 
     @Test
