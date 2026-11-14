@@ -66,6 +66,12 @@ fun MobileBottomSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     title: String? = null,
+    /**
+     * Raise this to ask for the sheet fully open — once per new value, never back down. Only a sheet
+     * whose content just grew something the user asked to see (a Sports preview in landscape) uses it;
+     * every other sheet leaves it at 0 and behaves exactly as before.
+     */
+    expandRequest: Int = 0,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val host = checkNotNull(LocalSheetHost.current) {
@@ -79,6 +85,7 @@ fun MobileBottomSheet(
         entry.modifier = modifier
         entry.title = title
         entry.content = content
+        entry.expandRequest = expandRequest
     }
     DisposableEffect(host) {
         host.entries.add(entry)

@@ -173,3 +173,17 @@ data class SportsChannelLabel(val name: String, val category: String?, val uhd: 
         )
     }
 }
+
+/**
+ * Bringing a Preview into view (pure). Seen on the Samsung with 1.0.10: started from a lower row, the
+ * Preview appeared at the top of the details — scrolled out of sight — and in landscape the half-open
+ * sheet showed little besides it. When a Preview starts (or moves to another channel) the details
+ * scroll back to their top, where it plays, and in landscape the sheet opens all the way. A Preview
+ * that carries on (the same channel: score, clock and playback updates) and a stopped one move nothing.
+ */
+object SportsPreviewReveal {
+    data class Reveal(val scrollToTop: Boolean, val expandSheet: Boolean)
+
+    fun onChange(before: Long?, now: Long?, landscape: Boolean): Reveal? =
+        if (now == null || now == before) null else Reveal(scrollToTop = true, expandSheet = landscape)
+}

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -875,17 +876,33 @@ private fun GameDetailsSheet(
             onCancel = { warnBeforeAdding = null },
         )
     }
+    // A Preview that starts is brought into view: the details scroll to their top, where it plays, and
+    // in landscape the sheet opens all the way. Remembered across rotation, so turning the phone does
+    // not count as a new Preview.
+    val detailsScroll = rememberScrollState()
+    var revealedPreview by rememberSaveable(event.id) { mutableStateOf<Long?>(null) }
+    var expandRequest by remember(event.id) { mutableIntStateOf(0) }
+    val windowSize = LocalWindowInfo.current.containerSize
+    val landscape = windowSize.width > windowSize.height
+    LaunchedEffect(previewing) {
+        val reveal = SportsPreviewReveal.onChange(revealedPreview, previewing, landscape)
+        revealedPreview = previewing
+        if (reveal == null) return@LaunchedEffect
+        if (reveal.expandSheet) expandRequest++
+        if (reveal.scrollToTop) detailsScroll.animateScrollTo(0)
+    }
     MobileBottomSheet(
         onDismissRequest = {
             vm.stopPreview()
             onDismiss()
         },
         title = title,
+        expandRequest = expandRequest,
     ) {
         // The sheet is frosted glass; on the Samsung (1.0.7) the cards behind it still read through its
         // lower half, card glass inside it or not. So the details stand on an OPAQUE surface of the
         // theme's own colour: nothing behind shows through, whatever the glass setting or the brand.
-        DetailsSurface {
+        DetailsSurface(detailsScroll) {
             val previewName = offer?.channels?.firstOrNull { it.localChannelId == previewing }?.name
             previewing?.let { previewId ->
                 SportsPreviewStage(
@@ -1188,7 +1205,7 @@ private fun SportsPreviewStage(channelId: Long, channelName: String?, onFullscre
  * sizes. Only this sheet uses it; every other sheet keeps its glass.
  */
 @Composable
-private fun DetailsSurface(content: @Composable ColumnScope.() -> Unit) {
+private fun DetailsSurface(scroll: ScrollState, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(MobileDimens.CardCorner)
     val fill = SportsDetailsSurface.fill(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.background)
     val window = LocalWindowInfo.current.containerSize
@@ -1203,7 +1220,7 @@ private fun DetailsSurface(content: @Composable ColumnScope.() -> Unit) {
             .clip(shape)
             .background(fill, shape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), shape)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = MobileDimens.GapMedium, vertical = MobileDimens.GapMedium),
         verticalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall),
         content = content,
