@@ -75,6 +75,7 @@ import tv.own.owntv.mobile.ui.components.MobileBottomSheet
 import tv.own.owntv.mobile.ui.components.MobileButton
 import tv.own.owntv.mobile.ui.components.MobileIcons
 import tv.own.owntv.mobile.ui.components.MobileListRow
+import tv.own.owntv.mobile.ui.components.SheetScroll
 import tv.own.owntv.player.LivePreviewEngine
 import tv.own.owntv.player.PlaybackFailure
 import tv.own.owntv.player.describe
@@ -726,35 +727,40 @@ private fun TileMenu(
 ) {
     val several = model.size > 1
     MobileBottomSheet(onDismissRequest = onDismiss, title = tile.content.title) {
-        if (!model.isFull) MenuRow(stringResource(R.string.multiview_add_channel), MobileIcons.Add, onAdd)
-        MenuRow(stringResource(R.string.multiview_tile_change_channel), MobileIcons.SwapHoriz, onSwap)
-        if (model.audioSlot != tile.slot) MenuRow(stringResource(R.string.multiview_make_audio), MobileIcons.VolumeUp, onAudio)
-        if (several) MenuRow(stringResource(R.string.multiview_fullscreen_in_grid), MobileIcons.OpenInFull, onGridFullscreen)
-        MenuRow(stringResource(R.string.multiview_tile_fullscreen), MobileIcons.OpenInNew, onOpenInPlayer)
-        if (several) {
-            MenuRow(
-                stringResource(
-                    if (model.spotlightSlot == tile.slot) R.string.multiview_spotlight_remove else R.string.multiview_spotlight,
-                ),
-                MobileIcons.AspectRatio,
-                onSpotlight,
-            )
+        // Scrolls inside the sheet. Seen on the Samsung with 1.0.11: a phone on its side is barely 400 dp
+        // tall, and with three or more tiles the layout rows, Move tile and Remove tile ran off the bottom
+        // of the screen, out of reach — removing a tile meant turning the phone upright first.
+        SheetScroll {
+            if (!model.isFull) MenuRow(stringResource(R.string.multiview_add_channel), MobileIcons.Add, onAdd)
+            MenuRow(stringResource(R.string.multiview_tile_change_channel), MobileIcons.SwapHoriz, onSwap)
+            if (model.audioSlot != tile.slot) MenuRow(stringResource(R.string.multiview_make_audio), MobileIcons.VolumeUp, onAudio)
+            if (several) MenuRow(stringResource(R.string.multiview_fullscreen_in_grid), MobileIcons.OpenInFull, onGridFullscreen)
+            MenuRow(stringResource(R.string.multiview_tile_fullscreen), MobileIcons.OpenInNew, onOpenInPlayer)
+            if (several) {
+                MenuRow(
+                    stringResource(
+                        if (model.spotlightSlot == tile.slot) R.string.multiview_spotlight_remove else R.string.multiview_spotlight,
+                    ),
+                    MobileIcons.AspectRatio,
+                    onSpotlight,
+                )
+            }
+            MultiviewLayoutMode.available(model.size).forEach { mode ->
+                MenuRow(
+                    label = stringResource(
+                        when (mode) {
+                            MultiviewLayoutMode.Auto -> R.string.multiview_layout_default
+                            MultiviewLayoutMode.EvenGrid -> R.string.multiview_layout_even
+                            MultiviewLayoutMode.Stacked -> R.string.multiview_layout_stacked
+                        },
+                    ),
+                    icon = if (mode == layoutMode && model.spotlightSlot == null) MobileIcons.Check else MobileIcons.GridView,
+                    onClick = { onLayout(mode) },
+                )
+            }
+            if (several) MenuRow(stringResource(R.string.multiview_move_tile), MobileIcons.SwapVert, onMove)
+            MenuRow(stringResource(R.string.multiview_tile_remove), MobileIcons.Close, onRemove)
         }
-        MultiviewLayoutMode.available(model.size).forEach { mode ->
-            MenuRow(
-                label = stringResource(
-                    when (mode) {
-                        MultiviewLayoutMode.Auto -> R.string.multiview_layout_default
-                        MultiviewLayoutMode.EvenGrid -> R.string.multiview_layout_even
-                        MultiviewLayoutMode.Stacked -> R.string.multiview_layout_stacked
-                    },
-                ),
-                icon = if (mode == layoutMode && model.spotlightSlot == null) MobileIcons.Check else MobileIcons.GridView,
-                onClick = { onLayout(mode) },
-            )
-        }
-        if (several) MenuRow(stringResource(R.string.multiview_move_tile), MobileIcons.SwapVert, onMove)
-        MenuRow(stringResource(R.string.multiview_tile_remove), MobileIcons.Close, onRemove)
     }
 }
 
