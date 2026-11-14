@@ -44,6 +44,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -115,7 +116,7 @@ internal class SheetEntry(
     var content by mutableStateOf(content)
 
     /** [MobileBottomSheet]'s expandRequest: each new value above 0 opens the sheet all the way. */
-    var expandRequest by mutableStateOf(0)
+    var expandRequest by mutableIntStateOf(0)
 }
 
 /**

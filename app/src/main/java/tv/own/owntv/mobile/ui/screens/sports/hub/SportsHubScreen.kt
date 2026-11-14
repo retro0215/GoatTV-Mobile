@@ -1009,10 +1009,12 @@ private fun WhereToWatch(
         Text(message.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
+    val labels = SportsChannelLabel.forRows(offer.channels)
     offer.channels.forEachIndexed { index, channel ->
         if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         WatchRow(
             channel = channel,
+            label = labels[index],
             opening = opening?.takeIf { it.localChannelId == channel.localChannelId }?.action,
             busy = opening != null,
             previewing = previewing == channel.localChannelId,
@@ -1038,6 +1040,7 @@ private fun WhereToWatch(
 @Composable
 private fun WatchRow(
     channel: VisibleSportsChannel,
+    label: SportsChannelLabel,
     opening: SportsPanelAction?,
     busy: Boolean,
     previewing: Boolean,
@@ -1045,7 +1048,6 @@ private fun WatchRow(
     onAction: (SportsPanelAction) -> Unit,
     onStopPreview: () -> Unit,
 ) {
-    val label = SportsChannelLabel.of(channel)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(MobileDimens.GapTiny)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MobileDimens.GapSmall)) {
             Column(Modifier.weight(1f)) {
@@ -1056,7 +1058,13 @@ private fun WatchRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                label.category?.let {
+                val number = label.number
+                val secondary = when {
+                    number != null && label.category != null -> stringResource(R.string.sports_channel_category_number, label.category, number)
+                    number != null -> stringResource(R.string.sports_channel_number, number)
+                    else -> label.category
+                }
+                secondary?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.labelMedium,

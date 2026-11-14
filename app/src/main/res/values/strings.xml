@@ -149,6 +149,8 @@
     <string name="sports_multiview_in_grid_a11y">%1$s is in Multiview</string>
     <string name="sports_multiview_add_a11y">Add %1$s to Multiview</string>
     <string name="sports_multiview_already">Already in Multiview</string>
+    <string name="sports_channel_number">Channel %1$d</string>
+    <string name="sports_channel_category_number">%1$s · Channel %2$d</string>
     <string name="sports_details_venue">Venue</string>
     <string name="sports_details_checking">Checking your channels</string>
     <string name="sports_details_none_allowed">None of this game’s channels are available for this profile.</string>

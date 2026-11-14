@@ -161,16 +161,33 @@ data class SportsPendingAction(val localChannelId: Long, val action: SportsPanel
 
 /**
  * A Where to Watch row as shown (pure): the channel's name as Live TV shows it, its category underneath
- * — how two channels of the same name are told apart — and the 4K tag. A category that is blank or only
- * repeats the name is left out. Nothing else of the channel is shown.
+ * and the 4K tag. A category that is blank or only repeats the name is left out.
+ *
+ * [number] — the playlist's own channel number, as the player shows it — is set only on rows that
+ * would otherwise read exactly alike (same name, same category; seen on the Samsung with 1.0.10: two
+ * "US: ESPN" feeds, both "USA | Sports"). It is never made up: a row whose playlist gives no number, or
+ * the same number as its twin, stays as it is. Nothing else of the channel is shown.
  */
-data class SportsChannelLabel(val name: String, val category: String?, val uhd: Boolean) {
+data class SportsChannelLabel(val name: String, val category: String?, val uhd: Boolean, val number: Int? = null) {
     companion object {
         fun of(channel: VisibleSportsChannel): SportsChannelLabel = SportsChannelLabel(
             name = channel.name,
             category = channel.category?.trim()?.takeIf { it.isNotEmpty() && !it.equals(channel.name.trim(), ignoreCase = true) },
             uhd = channel.uhd,
         )
+
+        /** Labels for a game's rows, in their order, with the channel number only where it tells twins apart. */
+        fun forRows(channels: List<VisibleSportsChannel>): List<SportsChannelLabel> {
+            val plain = channels.map(::of)
+            val looks = plain.map { it.name.lowercase() to it.category?.lowercase() }
+            return plain.mapIndexed { i, label ->
+                val twins = looks.indices.filter { looks[it] == looks[i] }
+                if (twins.size < 2) return@mapIndexed label
+                val number = channels[i].number ?: return@mapIndexed label
+                // A number only helps if it differs from every twin's.
+                if (twins.any { it != i && channels[it].number == number }) label else label.copy(number = number)
+            }
+        }
     }
 }
 

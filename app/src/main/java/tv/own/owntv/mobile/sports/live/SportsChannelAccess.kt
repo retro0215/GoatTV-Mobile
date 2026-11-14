@@ -58,12 +58,19 @@ class VisibleSportsChannel internal constructor(
     val networkKey: String?,
     val category: String?,
     val uhd: Boolean,
+    /**
+     * The playlist's own channel number — the one the player shows as "#n" and lists under each
+     * channel — or null when the playlist gives none. Shown only to tell apart two channels that would
+     * otherwise read the same; never a remote or EPG id.
+     */
+    val number: Int? = null,
     /** The backend's stable id for this feed: how [SportsChannelAccess.revalidate] finds it again. */
     internal val backendChannelId: String,
 ) {
     override fun equals(other: Any?): Boolean =
         other is VisibleSportsChannel && other.localChannelId == localChannelId && other.backendChannelId == backendChannelId &&
-            other.name == name && other.networkKey == networkKey && other.category == category && other.uhd == uhd
+            other.name == name && other.networkKey == networkKey && other.category == category && other.uhd == uhd &&
+            other.number == number
 
     override fun hashCode(): Int = 31 * localChannelId.hashCode() + backendChannelId.hashCode()
 
@@ -269,6 +276,7 @@ object SportsChannelVisibility {
                 networkKey = r.ref.networkKey,
                 category = r.ref.category?.takeIf { it.isNotBlank() },
                 uhd = SportsWatchPresentation.isUhd(local.name) || SportsWatchPresentation.isUhd(r.ref.name),
+                number = local.number,
                 backendChannelId = r.ref.channelId,
             ) to (if (name == local.name) local else local.copy(name = name))
         }
